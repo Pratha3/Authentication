@@ -4,18 +4,20 @@ import React, { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Lock, Eye, EyeOff, CheckCircle2, ShieldCheck } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card, CardContent, CardDescription,
+  CardFooter, CardHeader, CardTitle,
+} from "@/components/ui/card";
 import { authApi } from "@/lib/api";
-import { useToastContext } from "@/context/ToastContext";
 
 export default function ResetPasswordForm() {
   const params = useParams<{ token: string }>();
   const token = params?.token;
   const router = useRouter();
-  const { addToast } = useToastContext();
 
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -40,10 +42,10 @@ export default function ResetPasswordForm() {
     try {
       const res = await authApi.resetPassword(token, password);
       setIsSuccess(true);
-      addToast(res.message, "success");
-      setTimeout(() => router.push("/"), 2500);
+      toast.success(res.message);
+      setTimeout(() => router.push("/login"), 2500);
     } catch (err: unknown) {
-      addToast(err instanceof Error ? err.message : "Link may have expired.", "error");
+      toast.error(err instanceof Error ? err.message : "Link may have expired.");
     } finally {
       setIsLoading(false);
     }
@@ -58,9 +60,9 @@ export default function ResetPasswordForm() {
           </div>
           <h2 className="text-2xl font-bold text-foreground">Password Updated!</h2>
           <p className="text-muted-foreground">
-            Your password has been reset successfully. Redirecting to login…
+            Your password has been reset. Redirecting to login…
           </p>
-          <Link href="/" className="inline-block text-sm text-primary hover:underline underline-offset-4">
+          <Link href="/login" className="inline-block text-sm text-primary hover:underline underline-offset-4">
             Go to Login now →
           </Link>
         </div>
@@ -71,13 +73,12 @@ export default function ResetPasswordForm() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-white to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950 p-4">
       <div className="w-full max-w-md space-y-6">
-
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/25 mb-1">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary text-primary-foreground shadow-lg mb-1">
             <ShieldCheck className="h-7 w-7" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">AuthApp</h1>
-          <p className="text-sm text-muted-foreground">Secure · Fast · Reliable</p>
+          <h1 className="text-2xl font-bold tracking-tight">EventSphere</h1>
+          <p className="text-sm text-muted-foreground">Reset your password</p>
         </div>
 
         <Card className="shadow-xl border-0 ring-1 ring-border/60">
@@ -100,7 +101,6 @@ export default function ResetPasswordForm() {
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => { setPassword(e.target.value); if (errors.password) setErrors(p => ({ ...p, password: undefined })); }}
-                    error={errors.password}
                     className="pl-9 pr-10"
                     autoComplete="new-password"
                     required
@@ -110,6 +110,7 @@ export default function ResetPasswordForm() {
                     {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
+                {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
               </div>
 
               <div className="space-y-2">
@@ -122,7 +123,6 @@ export default function ResetPasswordForm() {
                     placeholder="••••••••"
                     value={confirm}
                     onChange={(e) => { setConfirm(e.target.value); if (errors.confirm) setErrors(p => ({ ...p, confirm: undefined })); }}
-                    error={errors.confirm}
                     className="pl-9 pr-10"
                     autoComplete="new-password"
                     required
@@ -132,14 +132,15 @@ export default function ResetPasswordForm() {
                     {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
+                {errors.confirm && <p className="text-sm text-destructive">{errors.confirm}</p>}
               </div>
             </CardContent>
 
             <CardFooter className="flex flex-col gap-3 pt-2">
               <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
-                Update Password
+                {isLoading ? "Updating…" : "Update Password"}
               </Button>
-              <Link href="/" className="text-sm text-muted-foreground hover:text-foreground transition-colors text-center w-full">
+              <Link href="/login" className="text-sm text-muted-foreground hover:text-foreground transition-colors text-center w-full">
                 ← Back to Login
               </Link>
             </CardFooter>

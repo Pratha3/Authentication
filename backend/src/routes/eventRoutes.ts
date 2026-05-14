@@ -3,17 +3,22 @@ import {
   getEvents, getFeaturedEvents, getNearbyEvents,
   getEventBySlug, createEvent, updateEvent, deleteEvent, getOrganizerEvents,
 } from "../controllers/eventController";
-import { protect } from "../middleware/auth";
+import { protect, optionalProtect } from "../middleware/auth";
 
 const router = Router();
 
-router.get("/", getEvents);
+// ── Static/specific routes MUST come before /:slug ───────────────────────────
+router.get("/", optionalProtect, getEvents);
 router.get("/featured", getFeaturedEvents);
 router.get("/nearby", getNearbyEvents);
 router.get("/organizer/:organizerId", getOrganizerEvents);
-router.get("/:slug", getEventBySlug);
+
+// ── CRUD ──────────────────────────────────────────────────────────────────────
 router.post("/", protect, createEvent);
 router.patch("/:id", protect, updateEvent);
 router.delete("/:id", protect, deleteEvent);
+
+// ── Dynamic slug — MUST be last ───────────────────────────────────────────────
+router.get("/:slug", optionalProtect, getEventBySlug);
 
 export default router;

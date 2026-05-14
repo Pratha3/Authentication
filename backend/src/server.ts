@@ -21,34 +21,30 @@ const httpServer = createServer(app);
 // ─── Database ─────────────────────────────────────────────────────────────────
 connectDB();
 
-// ─── CORS — must be first, before any body parsing ───────────────────────────
+// ─── CORS — must be registered before any routes ─────────────────────────────
 const allowedOrigins = [
   "http://localhost:3000",
   "http://localhost:5173",
   process.env.CLIENT_URL,
 ].filter(Boolean) as string[];
 
-const corsOptions: cors.CorsOptions = {
-  origin: (origin, callback) => {
-    // Allow server-to-server requests (no origin header) and listed origins
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error(`CORS: origin ${origin} not allowed`));
-    }
-  },
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-  optionsSuccessStatus: 204, // Some legacy browsers choke on 200 for preflight
-};
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(null, false);
+      }
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    optionsSuccessStatus: 204,
+  })
+);
 
-// Apply CORS to every route — the cors package handles OPTIONS preflight
-// automatically (preflightContinue defaults to false), so no separate
-// app.options() call is needed.
-app.use(cors(corsOptions));
-
-// ─── Body parsing (after CORS) ────────────────────────────────────────────────
+// ─── Body parsing ─────────────────────────────────────────────────────────────
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 

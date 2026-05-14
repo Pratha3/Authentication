@@ -1,10 +1,10 @@
 import { Request, Response } from "express";
 import { Event } from "../models/Event";
+import { Organizer } from "../models/Organizer";
 import { Registration } from "../models/Registration";
 import { Bookmark } from "../models/Bookmark";
 import { AuthRequest } from "../middleware/auth";
-import { emitEventStatusUpdate } from "../sockets/io";
-import mongoose from "mongoose";
+import { emitEventStatusUpdate, emitAttendeeUpdate } from "../sockets/io";
 
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371;
@@ -16,28 +16,32 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// GET /api/events
+// ─── GET /api/events ──────────────────────────────────────────────────────────
 export const getEvents = async (req: Request, res: Response): Promise<void> => {
   try {
     const {
-      category, dateFrom, dateTo, isFree, status = "upcoming,live",
-      search, sortBy = "date", page = "1", pageSize = "12",
+      category, dateFrom, dateTo, isFree,
+      status = "upcoming,live",
+      search, sortBy = "date",
+      page = "1", pageSize = "12",
       latitude, longitude, distance,
     } = req.query as Record<string, string>;
 
-    const userId = (req as AuthRequest).userId;
-    const pageNum = Math.max(1, parseInt(page));
-    const pageSizeNum = Math.min(50, parseInt(pageSize));
+    const userId = (req as AuthRequest).userId; // from optionalProtect
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const pageSizeNum = Math.min(50, parseInt(pageSize) || 12);
     const skip = (pageNum - 1) * pageSizeNum;
 
+    // Build filter
     const filter: Record<string, unknown> = {
-      status: { $in: status.split(",") },
+      status: { $in: status.split(",").map((s) => s.trim()) },
     };
-
-    if (category) filter.category = { $in: category.split(",") };
+    if (category) filter.category = { $in: category.split(",").map((c) => c.trim()) };
     if (dateFrom) filter.startDate = { $gte: new Date(dateFrom) };
-    if (dateTo) filter.startDate = { ...(filter.startDate as object), $lte: new Date(dateTo) };
-    if (isFree !== undefined) filter.isFree = isFree === "true";
+    if (dateTo) {
+      filter.startDate = { ...(filter.startDate as object ?? {}), $lte: new Date(dateTo) };
+    }
+    if (isFree !== undefined && isFree !== "") filter.isFree = isFree === "true";
     if (search) filter.$text = { $search: search };
 
     const sortMap: Record<string, Record<string, 1 | -1>> = {
@@ -59,13 +63,14 @@ export const getEvents = async (req: Request, res: Response): Promise<void> => {
       Event.countDocuments(filter),
     ]);
 
-    // Enrich with user-specific data
+    // Enrich with user-specific registration/bookmark data
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let enriched: any[] = events;
     if (userId) {
       const ids = events.map((e) => e._id);
       const [regs, bms] = await Promise.all([
-        Registration.find({ userId, eventId: { $in: ids }, status: { $ne: "cancelled" } }).select("eventId").lean(),
+        Registration.find({ userId, eventId: { $in: ids }, status: { $ne: "cancelled" } })
+          .select("eventId").lean(),
         Bookmark.find({ userId, eventId: { $in: ids } }).select("eventId").lean(),
       ]);
       const regSet = new Set(regs.map((r) => String(r.eventId)));
@@ -77,7 +82,7 @@ export const getEvents = async (req: Request, res: Response): Promise<void> => {
       }));
     }
 
-    // Distance filter
+    // Distance filter & sort
     if (latitude && longitude) {
       const lat = parseFloat(latitude);
       const lon = parseFloat(longitude);
@@ -85,62 +90,99 @@ export const getEvents = async (req: Request, res: Response): Promise<void> => {
       enriched = enriched
         .map((e) => ({
           ...e,
-          distance: e.latitude && e.longitude ? calculateDistance(lat, lon, e.latitude, e.longitude) : undefined,
+          distance:
+            e.latitude != null && e.longitude != null
+              ? calculateDistance(lat, lon, e.latitude, e.longitude)
+              : undefined,
         }))
-        .filter((e: any) => !maxDist || (e.distance !== undefined && e.distance <= maxDist));
-      if (sortBy === "distance") enriched.sort((a: any, b: any) => (a.distance ?? 999) - (b.distance ?? 999));
+        .filter((e) => !maxDist || (e.distance !== undefined && e.distance <= maxDist));
+      if (sortBy === "distance") {
+        enriched.sort((a, b) => (a.distance ?? 999) - (b.distance ?? 999));
+      }
     }
 
-    res.json({ data: enriched, count: total, page: pageNum, pageSize: pageSizeNum, hasMore: skip + pageSizeNum < total });
+    res.json({
+      data: enriched,
+      count: total,
+      page: pageNum,
+      pageSize: pageSizeNum,
+      hasMore: skip + pageSizeNum < total,
+    });
   } catch (err) {
-    console.error(err);
+    console.error("GET EVENTS ERROR:", err);
     res.status(500).json({ message: "Server error." });
   }
 };
 
-// GET /api/events/featured
+// ─── GET /api/events/featured ─────────────────────────────────────────────────
 export const getFeaturedEvents = async (_req: Request, res: Response): Promise<void> => {
   try {
     const events = await Event.find({ isFeatured: true, status: { $in: ["upcoming", "live"] } })
-      .populate("organizerId", "organizationName logoUrl")
+      .populate("organizerId", "organizationName logoUrl verificationStatus")
       .populate("venueId", "name city")
       .sort({ startDate: 1 })
       .limit(6)
       .lean();
     res.json({ data: events, error: null });
-  } catch {
+  } catch (err) {
+    console.error("GET FEATURED ERROR:", err);
     res.status(500).json({ message: "Server error." });
   }
 };
 
-// GET /api/events/nearby
+// ─── GET /api/events/nearby ───────────────────────────────────────────────────
 export const getNearbyEvents = async (req: Request, res: Response): Promise<void> => {
   try {
     const { latitude, longitude, radius = "10" } = req.query as Record<string, string>;
-    if (!latitude || !longitude) { res.status(400).json({ message: "latitude and longitude required." }); return; }
+    if (!latitude || !longitude) {
+      res.status(400).json({ message: "latitude and longitude are required." });
+      return;
+    }
     const lat = parseFloat(latitude);
     const lon = parseFloat(longitude);
     const radiusKm = parseFloat(radius);
 
-    const events = await Event.find({ status: { $in: ["upcoming", "live"] }, latitude: { $ne: null }, longitude: { $ne: null } })
+    const events = await Event.find({
+      status: { $in: ["upcoming", "live"] },
+      latitude: { $ne: null },
+      longitude: { $ne: null },
+    })
       .populate("organizerId", "organizationName logoUrl")
       .sort({ startDate: 1 })
-      .limit(50)
+      .limit(100)
       .lean();
 
     const nearby = events
-      .map((e) => ({ ...e, distance: calculateDistance(lat, lon, e.latitude!, e.longitude!) }))
+      .map((e) => ({
+        ...e,
+        distance: calculateDistance(lat, lon, e.latitude!, e.longitude!),
+      }))
       .filter((e) => e.distance <= radiusKm)
       .sort((a, b) => a.distance - b.distance)
       .slice(0, 20);
 
     res.json({ data: nearby, error: null });
-  } catch {
+  } catch (err) {
+    console.error("GET NEARBY ERROR:", err);
     res.status(500).json({ message: "Server error." });
   }
 };
 
-// GET /api/events/:slug
+// ─── GET /api/events/organizer/:organizerId ───────────────────────────────────
+export const getOrganizerEvents = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const events = await Event.find({ organizerId: req.params.organizerId })
+      .populate("venueId", "name city")
+      .sort({ createdAt: -1 })
+      .lean();
+    res.json({ data: events, error: null });
+  } catch (err) {
+    console.error("GET ORGANIZER EVENTS ERROR:", err);
+    res.status(500).json({ message: "Server error." });
+  }
+};
+
+// ─── GET /api/events/:slug ────────────────────────────────────────────────────
 export const getEventBySlug = async (req: Request, res: Response): Promise<void> => {
   try {
     const event = await Event.findOne({ slug: req.params.slug })
@@ -148,76 +190,128 @@ export const getEventBySlug = async (req: Request, res: Response): Promise<void>
       .populate("venueId", "name address city latitude longitude")
       .lean();
 
-    if (!event) { res.status(404).json({ message: "Event not found.", error: "Event not found" }); return; }
+    if (!event) {
+      res.status(404).json({ data: null, error: "Event not found" });
+      return;
+    }
 
     const userId = (req as AuthRequest).userId;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let enriched: any = event;
     if (userId) {
       const [reg, bm] = await Promise.all([
-        Registration.findOne({ eventId: event._id, userId, status: { $ne: "cancelled" } }),
-        Bookmark.findOne({ eventId: event._id, userId }),
+        Registration.findOne({ eventId: event._id, userId, status: { $ne: "cancelled" } }).lean(),
+        Bookmark.findOne({ eventId: event._id, userId }).lean(),
       ]);
       enriched = { ...event, isRegistered: !!reg, isBookmarked: !!bm };
     }
 
     // Increment view count (fire-and-forget)
-    Event.findByIdAndUpdate(event._id, { $inc: { viewCount: 1 } }).exec();
+    Event.findByIdAndUpdate(event._id, { $inc: { viewCount: 1 } }).exec().catch(() => {});
 
     res.json({ data: enriched, error: null });
-  } catch {
+  } catch (err) {
+    console.error("GET EVENT BY SLUG ERROR:", err);
     res.status(500).json({ message: "Server error." });
   }
 };
 
-// POST /api/events
+// ─── POST /api/events ─────────────────────────────────────────────────────────
 export const createEvent = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const event = new Event({ ...req.body, organizerId: req.userId });
+    // Look up the organizer record for this user
+    const organizer = await Organizer.findOne({ userId: req.userId });
+    if (!organizer) {
+      res.status(403).json({ message: "You must have an organizer profile to create events." });
+      return;
+    }
+
+    // Auto-generate slug from title if not provided
+    const body = { ...req.body };
+    if (!body.slug && body.title) {
+      body.slug = body.title
+        .toLowerCase()
+        .trim()
+        .replace(/[^\w\s-]/g, "")
+        .replace(/[\s_-]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        + "-" + Date.now();
+    }
+
+    const event = new Event({ ...body, organizerId: organizer._id });
     await event.save();
+
+    // Increment organizer's total_events
+    await Organizer.findByIdAndUpdate(organizer._id, { $inc: { totalEvents: 1 } });
+
     res.status(201).json({ data: event, error: null });
   } catch (err: any) {
-    if (err.code === 11000) { res.status(409).json({ message: "An event with this slug already exists." }); return; }
+    console.error("CREATE EVENT ERROR:", err);
+    if (err.code === 11000) {
+      res.status(409).json({ message: "An event with this slug already exists." });
+      return;
+    }
+    if (err.name === "ValidationError") {
+      const messages = Object.values(err.errors).map((e: any) => e.message).join(", ");
+      res.status(400).json({ message: messages });
+      return;
+    }
     res.status(500).json({ message: "Server error." });
   }
 };
 
-// PATCH /api/events/:id
+// ─── PATCH /api/events/:id ────────────────────────────────────────────────────
 export const updateEvent = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const event = await Event.findById(req.params.id);
     if (!event) { res.status(404).json({ message: "Event not found." }); return; }
-    if (String(event.organizerId) !== req.userId) { res.status(403).json({ message: "Not authorized." }); return; }
+
+    // Verify ownership via organizer
+    const organizer = await Organizer.findOne({ userId: req.userId });
+    if (!organizer || String(event.organizerId) !== String(organizer._id)) {
+      res.status(403).json({ message: "Not authorized to edit this event." });
+      return;
+    }
+
+    const prevStatus = event.status;
     Object.assign(event, req.body);
     await event.save();
-    if (req.body.status) emitEventStatusUpdate(String(event._id), event.status);
+
+    // Emit real-time status update if status changed
+    if (req.body.status && req.body.status !== prevStatus) {
+      emitEventStatusUpdate(String(event._id), event.status);
+    }
+
     res.json({ data: event, error: null });
-  } catch {
+  } catch (err: any) {
+    console.error("UPDATE EVENT ERROR:", err);
+    if (err.name === "ValidationError") {
+      const messages = Object.values(err.errors).map((e: any) => e.message).join(", ");
+      res.status(400).json({ message: messages });
+      return;
+    }
     res.status(500).json({ message: "Server error." });
   }
 };
 
-// DELETE /api/events/:id
+// ─── DELETE /api/events/:id ───────────────────────────────────────────────────
 export const deleteEvent = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const event = await Event.findById(req.params.id);
     if (!event) { res.status(404).json({ message: "Event not found." }); return; }
-    if (String(event.organizerId) !== req.userId) { res.status(403).json({ message: "Not authorized." }); return; }
-    await event.deleteOne();
-    res.json({ data: null, error: null });
-  } catch {
-    res.status(500).json({ message: "Server error." });
-  }
-};
 
-// GET /api/events/organizer/:organizerId
-export const getOrganizerEvents = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const events = await Event.find({ organizerId: req.params.organizerId })
-      .sort({ createdAt: -1 })
-      .lean();
-    res.json({ data: events, error: null });
-  } catch {
+    const organizer = await Organizer.findOne({ userId: req.userId });
+    if (!organizer || String(event.organizerId) !== String(organizer._id)) {
+      res.status(403).json({ message: "Not authorized to delete this event." });
+      return;
+    }
+
+    await event.deleteOne();
+    await Organizer.findByIdAndUpdate(organizer._id, { $inc: { totalEvents: -1 } });
+
+    res.json({ data: null, error: null });
+  } catch (err) {
+    console.error("DELETE EVENT ERROR:", err);
     res.status(500).json({ message: "Server error." });
   }
 };

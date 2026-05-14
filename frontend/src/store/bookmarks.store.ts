@@ -17,7 +17,7 @@ export const useBookmarksStore = create<BookmarksState>()(
   persist(
     (set, get) => ({
       bookmarks: [],
-      bookmarkedIds: new Set(),
+      bookmarkedIds: new Set<string>(),
       isLoading: false,
 
       setBookmarks: (bookmarks) =>
@@ -39,12 +39,24 @@ export const useBookmarksStore = create<BookmarksState>()(
           }
         }),
 
-      isBookmarked: (eventId) => get().bookmarkedIds.has(eventId),
+      isBookmarked: (eventId) => {
+        const ids = get().bookmarkedIds
+        // Guard: after hydration from localStorage the Set may be a plain array
+        if (ids instanceof Set) return ids.has(eventId)
+        return (ids as unknown as string[]).includes(eventId)
+      },
+
       setLoading: (isLoading) => set({ isLoading }),
     }),
     {
       name: 'eventsphere-bookmarks',
+      // Serialize Set → array, deserialize array → Set
       partialize: (state) => ({ bookmarkedIds: Array.from(state.bookmarkedIds) }),
+      merge: (persisted, current) => ({
+        ...current,
+        // Restore array back to Set on hydration
+        bookmarkedIds: new Set((persisted as { bookmarkedIds: string[] }).bookmarkedIds ?? []),
+      }),
     }
   )
 )

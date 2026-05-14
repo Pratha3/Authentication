@@ -24,7 +24,7 @@ export default function LandingPage() {
               <Zap className="mr-1 h-3 w-3" /> Live events near you
             </Badge>
             <h1 className="text-4xl font-bold tracking-tight sm:text-6xl md:text-7xl text-balance mb-6">
-              Discover Events That{' '}
+              Discover Events That
               <span className="gradient-text">Move You</span>
             </h1>
             <p className="mx-auto max-w-2xl text-lg text-muted-foreground mb-8 text-balance">
