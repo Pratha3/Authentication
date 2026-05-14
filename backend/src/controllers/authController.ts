@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { User } from "../models/User";
+import { Profile } from "../models/Profile";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
@@ -41,6 +42,13 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
       name: name?.trim(),
     });
     await newUser.save();
+
+    // Auto-create profile
+    await Profile.create({
+      userId: newUser._id,
+      email: email.toLowerCase(),
+      fullName: name?.trim() ?? null,
+    });
 
     const token = generateToken(String(newUser._id));
 

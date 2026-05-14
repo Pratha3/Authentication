@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(cd \"c:/Pratha/Practice/frontend/src\" && mkdir -p features/auth features/events features/organizers features/bookmarks features/notifications features/maps features/admin services/supabase services/realtime services/storage store types constants utils lib hooks components/ui components/shared components/layout components/maps components/events components/organizer components/animations styles middleware app/\"\\(public\\)\" app/\"\\(auth\\)\" app/\"\\(dashboard\\)\" 2>&1)"
+    ]
+  }
+}

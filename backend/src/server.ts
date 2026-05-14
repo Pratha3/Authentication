@@ -3,9 +3,16 @@ dotenv.config();
 
 import express from "express";
 import cors from "cors";
+import path from "path";
 import { createServer } from "http";
 import { connectDB } from "./config/db";
 import authRoutes from "./routes/authRoutes";
+import eventRoutes from "./routes/eventRoutes";
+import profileRoutes from "./routes/profileRoutes";
+import registrationRoutes from "./routes/registrationRoutes";
+import bookmarkRoutes from "./routes/bookmarkRoutes";
+import notificationRoutes from "./routes/notificationRoutes";
+import uploadRoutes from "./routes/uploadRoutes";
 import { initSockets } from "./sockets/io";
 
 const app = express();
@@ -19,13 +26,14 @@ app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: true }));
 
 const allowedOrigins = [
-  process.env.CLIENT_URL || "http://localhost:5173",
+  process.env.CLIENT_URL || "http://localhost:3000",
+  "http://localhost:3000",
+  "http://localhost:5173",
 ];
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (e.g. mobile apps, curl)
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
@@ -36,8 +44,17 @@ app.use(
   })
 );
 
+// ─── Static uploads ───────────────────────────────────────────────────────────
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+
 // ─── Routes ───────────────────────────────────────────────────────────────────
 app.use("/api/auth", authRoutes);
+app.use("/api/events", eventRoutes);
+app.use("/api/profiles", profileRoutes);
+app.use("/api/registrations", registrationRoutes);
+app.use("/api/bookmarks", bookmarkRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/upload", uploadRoutes);
 
 // ─── Health check ─────────────────────────────────────────────────────────────
 app.get("/api/health", (_req, res) => {

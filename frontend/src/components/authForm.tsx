@@ -1,40 +1,29 @@
 "use client";
 
 import React, { useState } from "react";
-import { Eye, EyeOff, Mail, Lock, User } from "lucide-react";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "./ui/card";
+import { Eye, EyeOff, Mail, Lock, User, ShieldCheck } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
 // ─── Password strength ────────────────────────────────────────────────────────
-function getPasswordStrength(password: string): {
-  score: number;
-  label: string;
-  color: string;
-} {
-  if (!password) return { score: 0, label: "", color: "" };
+function getPasswordStrength(pw: string) {
+  if (!pw) return null;
   let score = 0;
-  if (password.length >= 8) score++;
-  if (/[A-Z]/.test(password)) score++;
-  if (/[0-9]/.test(password)) score++;
-  if (/[^A-Za-z0-9]/.test(password)) score++;
-
+  if (pw.length >= 8) score++;
+  if (/[A-Z]/.test(pw)) score++;
+  if (/[0-9]/.test(pw)) score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
   const levels = [
-    { score: 1, label: "Weak", color: "bg-red-500" },
-    { score: 2, label: "Fair", color: "bg-amber-500" },
-    { score: 3, label: "Good", color: "bg-yellow-400" },
-    { score: 4, label: "Strong", color: "bg-emerald-500" },
+    { label: "Weak",   color: "bg-red-500",     text: "text-red-500"     },
+    { label: "Fair",   color: "bg-amber-500",   text: "text-amber-500"   },
+    { label: "Good",   color: "bg-yellow-500",  text: "text-yellow-600"  },
+    { label: "Strong", color: "bg-emerald-500", text: "text-emerald-600" },
   ];
-  return levels[score - 1] ?? { score: 0, label: "", color: "" };
+  return { score, ...(levels[score - 1] ?? levels[0]) };
 }
 
 export interface AuthFormProps {
@@ -59,31 +48,23 @@ export default function AuthForm({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [isForgotPasswordView, setIsForgotPasswordView] = useState(false);
+  const [showPw, setShowPw] = useState(false);
+  const [isForgot, setIsForgot] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [errors, setErrors] = useState<{
-    name?: string;
-    email?: string;
-    password?: string;
-  }>({});
+  const [errors, setErrors] = useState<{ name?: string; email?: string; password?: string }>({});
 
-  const isSignup = showNameField;
-  const strength = isSignup ? getPasswordStrength(password) : null;
+  const strength = showNameField && !isForgot ? getPasswordStrength(password) : null;
 
-  const validate = (): boolean => {
-    const newErrors: typeof errors = {};
-    if (showNameField && !isForgotPasswordView && name.trim().length < 2) {
-      newErrors.name = "Name must be at least 2 characters.";
-    }
-    if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
-      newErrors.email = "Please enter a valid email address.";
-    }
-    if (!isForgotPasswordView && password.length < 6) {
-      newErrors.password = "Password must be at least 6 characters.";
-    }
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+  const validate = () => {
+    const e: typeof errors = {};
+    if (showNameField && !isForgot && name.trim().length < 2)
+      e.name = "Name must be at least 2 characters.";
+    if (!email || !/^\S+@\S+\.\S+$/.test(email))
+      e.email = "Please enter a valid email address.";
+    if (!isForgot && password.length < 6)
+      e.password = "Password must be at least 6 characters.";
+    setErrors(e);
+    return Object.keys(e).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -91,80 +72,62 @@ export default function AuthForm({
     if (!validate()) return;
     setIsLoading(true);
     try {
-      if (isForgotPasswordView) {
-        await onSubmit(email);
-      } else if (showNameField) {
-        await onSubmit(email, password, name.trim() || undefined);
-      } else {
-        await onSubmit(email, password);
-      }
+      if (isForgot) await onSubmit(email);
+      else if (showNameField) await onSubmit(email, password, name.trim() || undefined);
+      else await onSubmit(email, password);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleToggleMode = () => {
-    setIsForgotPasswordView(false);
+  const handleToggle = () => {
+    setIsForgot(false);
     setErrors({});
-    setEmail("");
-    setPassword("");
-    setName("");
+    setEmail(""); setPassword(""); setName("");
     onToggle();
   };
 
-  const accentColor = isForgotPasswordView
-    ? "border-t-amber-500"
-    : isSignup
-    ? "border-t-emerald-500"
-    : "border-t-indigo-500";
-
-  const buttonVariantClass = isForgotPasswordView
-    ? "bg-amber-600 hover:bg-amber-700 focus-visible:ring-amber-500"
-    : isSignup
-    ? "bg-emerald-600 hover:bg-emerald-700 focus-visible:ring-emerald-500"
-    : "bg-indigo-600 hover:bg-indigo-700 focus-visible:ring-indigo-500";
-
-  const displayTitle = isForgotPasswordView ? "Reset Password" : title;
-  const displayDescription = isForgotPasswordView
+  const displayTitle = isForgot ? "Forgot Password" : title;
+  const displayDesc = isForgot
     ? "Enter your email and we'll send you a reset link."
-    : isSignup
+    : showNameField
     ? "Create your account to get started."
-    : "Welcome back! Sign in to your account.";
+    : "Welcome back! Sign in to continue.";
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-900 dark:to-slate-800 p-4">
-      <div className="w-full max-w-md">
-        {/* Brand */}
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-indigo-600 text-white mb-3 shadow-lg">
-            <Lock className="h-6 w-6" aria-hidden="true" />
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-white to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950 p-4">
+      <div className="w-full max-w-md space-y-6">
+
+        {/* Brand header */}
+        <div className="text-center space-y-2">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/25 mb-1">
+            <ShieldCheck className="h-7 w-7" aria-hidden="true" />
           </div>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-50">AuthApp</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">AuthApp</h1>
+          <p className="text-sm text-muted-foreground">Secure · Fast · Reliable</p>
         </div>
 
-        <Card className={cn("border-t-4 shadow-xl", accentColor)}>
-          <CardHeader className="text-center">
-            <CardTitle>{displayTitle}</CardTitle>
-            <CardDescription>{displayDescription}</CardDescription>
+        <Card className="shadow-xl border-0 ring-1 ring-border/60">
+          <CardHeader className="space-y-1 pb-4">
+            <CardTitle className="text-xl text-center">{displayTitle}</CardTitle>
+            <CardDescription className="text-center">{displayDesc}</CardDescription>
           </CardHeader>
 
           <form onSubmit={handleSubmit} noValidate>
             <CardContent className="space-y-4">
-              {/* Name (signup only) */}
-              {showNameField && !isForgotPasswordView && (
-                <div className="space-y-1.5">
+
+              {/* Name field */}
+              {showNameField && !isForgot && (
+                <div className="space-y-2">
                   <Label htmlFor="name">Full Name</Label>
                   <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" aria-hidden="true" />
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                     <Input
                       id="name"
                       type="text"
                       placeholder="John Doe"
                       value={name}
-                      onChange={(e) => {
-                        setName(e.target.value);
-                        if (errors.name) setErrors((p) => ({ ...p, name: undefined }));
-                      }}
+                      onChange={(e) => { setName(e.target.value); if (errors.name) setErrors(p => ({ ...p, name: undefined })); }}
                       error={errors.name}
                       className="pl-9"
                       autoComplete="name"
@@ -173,20 +136,17 @@ export default function AuthForm({
                 </div>
               )}
 
-              {/* Email */}
-              <div className="space-y-1.5">
+              {/* Email field */}
+              <div className="space-y-2">
                 <Label htmlFor="email">Email Address</Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" aria-hidden="true" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                   <Input
                     id="email"
                     type="email"
-                    placeholder="name@example.com"
+                    placeholder="you@example.com"
                     value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value);
-                      if (errors.email) setErrors((p) => ({ ...p, email: undefined }));
-                    }}
+                    onChange={(e) => { setEmail(e.target.value); if (errors.email) setErrors(p => ({ ...p, email: undefined })); }}
                     error={errors.email}
                     className="pl-9"
                     autoComplete="email"
@@ -195,77 +155,60 @@ export default function AuthForm({
                 </div>
               </div>
 
-              {/* Password */}
-              {!isForgotPasswordView && (
-                <div className="space-y-1.5">
+              {/* Password field */}
+              {!isForgot && (
+                <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="password">Password</Label>
                     {showForgotPasswordLink && (
                       <button
                         type="button"
-                        onClick={() => {
-                          setIsForgotPasswordView(true);
-                          setErrors({});
-                        }}
-                        className="text-xs text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 hover:underline transition-colors"
+                        onClick={() => { setIsForgot(true); setErrors({}); }}
+                        className="text-xs text-primary hover:underline underline-offset-4 transition-colors"
                       >
                         Forgot password?
                       </button>
                     )}
                   </div>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" aria-hidden="true" />
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                     <Input
                       id="password"
-                      type={showPassword ? "text" : "password"}
+                      type={showPw ? "text" : "password"}
                       placeholder="••••••••"
                       value={password}
-                      onChange={(e) => {
-                        setPassword(e.target.value);
-                        if (errors.password) setErrors((p) => ({ ...p, password: undefined }));
-                      }}
+                      onChange={(e) => { setPassword(e.target.value); if (errors.password) setErrors(p => ({ ...p, password: undefined })); }}
                       error={errors.password}
                       className="pl-9 pr-10"
-                      autoComplete={isSignup ? "new-password" : "current-password"}
+                      autoComplete={showNameField ? "new-password" : "current-password"}
                       required
                     />
                     <button
                       type="button"
-                      onClick={() => setShowPassword((v) => !v)}
-                      aria-label={showPassword ? "Hide password" : "Show password"}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                      onClick={() => setShowPw(v => !v)}
+                      aria-label={showPw ? "Hide password" : "Show password"}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                     >
-                      {showPassword ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
+                      {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
 
-                  {/* Password strength (signup only) */}
-                  {isSignup && password.length > 0 && strength && (
-                    <div className="space-y-1" aria-label={`Password strength: ${strength.label}`}>
-                      <div className="flex gap-1">
+                  {/* Strength meter */}
+                  {strength && password.length > 0 && (
+                    <div className="space-y-1.5 pt-1">
+                      <div className="flex gap-1" aria-label={`Password strength: ${strength.label}`}>
                         {[1, 2, 3, 4].map((i) => (
                           <div
                             key={i}
                             className={cn(
-                              "h-1 flex-1 rounded-full transition-colors duration-300",
-                              i <= strength.score ? strength.color : "bg-slate-200 dark:bg-slate-700"
+                              "h-1.5 flex-1 rounded-full transition-all duration-300",
+                              i <= strength.score ? strength.color : "bg-muted"
                             )}
                           />
                         ))}
                       </div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Strength:{" "}
-                        <span
-                          className={cn(
-                            "font-medium",
-                            strength.score <= 1 ? "text-red-500"
-                              : strength.score === 2 ? "text-amber-500"
-                              : strength.score === 3 ? "text-yellow-500"
-                              : "text-emerald-500"
-                          )}
-                        >
-                          {strength.label}
-                        </span>
+                      <p className="text-xs text-muted-foreground">
+                        Strength: <span className={cn("font-semibold", strength.text)}>{strength.label}</span>
                       </p>
                     </div>
                   )}
@@ -273,26 +216,36 @@ export default function AuthForm({
               )}
             </CardContent>
 
-            <CardFooter className="flex flex-col gap-3">
-              <Button
-                type="submit"
-                className={cn("w-full text-white", buttonVariantClass)}
-                isLoading={isLoading}
-                disabled={isLoading}
-              >
-                {isForgotPasswordView ? "Send Reset Link" : buttonText}
+            <CardFooter className="flex flex-col gap-3 pt-2">
+              <Button type="submit" className="w-full" size="lg" isLoading={isLoading}>
+                {isForgot ? "Send Reset Link" : buttonText}
               </Button>
+
+              <div className="relative w-full">
+                <Separator />
+                <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-xs text-muted-foreground">
+                  or
+                </span>
+              </div>
+
               <Button
                 type="button"
                 variant="ghost"
-                onClick={isForgotPasswordView ? () => setIsForgotPasswordView(false) : handleToggleMode}
-                className="w-full text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                className="w-full text-sm"
+                onClick={isForgot ? () => setIsForgot(false) : handleToggle}
               >
-                {isForgotPasswordView ? "← Back to Login" : toggleText}
+                {isForgot ? "← Back to Sign In" : toggleText}
               </Button>
             </CardFooter>
           </form>
         </Card>
+
+        <p className="text-center text-xs text-muted-foreground">
+          By continuing, you agree to our{" "}
+          <span className="underline underline-offset-4 cursor-pointer hover:text-foreground transition-colors">Terms</span>
+          {" "}and{" "}
+          <span className="underline underline-offset-4 cursor-pointer hover:text-foreground transition-colors">Privacy Policy</span>.
+        </p>
       </div>
     </div>
   );

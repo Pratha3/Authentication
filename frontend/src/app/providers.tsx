@@ -1,24 +1,21 @@
-"use client";
+'use client'
+import { ThemeProvider } from 'next-themes'
+import { Toaster } from 'sonner'
+import { useAuth } from '@/hooks/useAuth'
+import { useRealtimeNotifications } from '@/hooks/useRealtimeNotifications'
 
-import { AuthProvider } from "@/context/AuthContext";
-import { ToastContext } from "@/context/ToastContext";
-import { ToastContainer } from "@/components/ui/toast";
-import { useToast } from "@/hooks/useToast";
-
-function ToastProvider({ children }: { children: React.ReactNode }) {
-  const { toasts, addToast, removeToast } = useToast();
-  return (
-    <ToastContext.Provider value={{ addToast }}>
-      {children}
-      <ToastContainer toasts={toasts} onRemove={removeToast} />
-    </ToastContext.Provider>
-  );
+function AppInitializer() {
+  useAuth()
+  useRealtimeNotifications()
+  return null
 }
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <AuthProvider>
-      <ToastProvider>{children}</ToastProvider>
-    </AuthProvider>
-  );
+    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
+      <AppInitializer />
+      {children}
+      <Toaster position="bottom-right" richColors expand closeButton />
+    </ThemeProvider>
+  )
 }
