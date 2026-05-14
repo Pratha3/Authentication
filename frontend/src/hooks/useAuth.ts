@@ -23,21 +23,16 @@ export function useAuth() {
       return
     }
 
-    // Rehydrate session from stored JWT
     authApi.getMe()
       .then(async ({ user: me }) => {
         setUser(me)
         setToken(storedToken)
-        // Fetch full profile
         try {
           const { data } = await profilesApi.get(me.id) as { data: Profile | null }
           setProfile(data)
-        } catch {
-          // Profile fetch failure is non-fatal
-        }
+        } catch {}
       })
       .catch(() => {
-        // Token expired or invalid — clear it
         clearToken()
         setToken(null)
         setUser(null)

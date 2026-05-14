@@ -7,7 +7,7 @@ import { protect } from "../middleware/auth";
 
 const storage = multer.diskStorage({
   destination: (req, _file, cb) => {
-    const bucket = req.params.bucket || "misc";
+    const bucket = String(req.params.bucket || "misc");
     const dir = path.join(process.cwd(), "uploads", bucket);
     fs.mkdirSync(dir, { recursive: true });
     cb(null, dir);

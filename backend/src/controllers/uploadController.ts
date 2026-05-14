@@ -1,16 +1,16 @@
 import { Response } from "express";
 import { AuthRequest } from "../middleware/auth";
-import path from "path";
 
 // POST /api/upload/:bucket
 export const uploadFile = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     if (!req.file) { res.status(400).json({ message: "No file uploaded." }); return; }
 
-    const baseUrl = process.env.CLIENT_URL?.replace("5173", "5000") || "http://localhost:5000";
+    const port = process.env.PORT || "5000";
+    const host = process.env.BACKEND_URL || `http://localhost:${port}`;
     const bucket = req.params.bucket;
     const filename = req.file.filename;
-    const url = `${baseUrl}/uploads/${bucket}/${filename}`;
+    const url = `${host}/uploads/${bucket}/${filename}`;
 
     res.json({ url, error: null });
   } catch {

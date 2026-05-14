@@ -1,80 +1,75 @@
-import { getSupabaseBrowserClient } from '@/services/supabase/client'
-import type { RealtimeChannel } from '@supabase/supabase-js'
-import type { Event, Registration, Notification } from '@/types'
+import { io, type Socket } from 'socket.io-client'
 
-type EventPayload<T> = { new: T; old: T; eventType: 'INSERT' | 'UPDATE' | 'DELETE' }
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') ?? 'http://localhost:5000'
+
+let socket: Socket | null = null
+
+export function getSocket(): Socket {
+  if (!socket) {
+    socket = io(BACKEND_URL, { autoConnect: false, withCredentials: true })
+  }
+  return socket
+}
+
+export function connectSocket(): Socket {
+  const s = getSocket()
+  if (!s.connected) s.connect()
+  return s
+}
+
+export function disconnectSocket() {
+  socket?.disconnect()
+}
+
+// ── Event rooms ──────────────────────────────────────────────────────────────
+
+export interface AttendeeUpdate {
+  eventId: string
+  count: number
+  capacity: number | null
+  status: string
+}
 
 export function subscribeToEventUpdates(
   eventId: string,
   onAttendeeChange: (count: number) => void,
-  onStatusChange: (status: Event['status']) => void
-): RealtimeChannel {
-  const supabase = getSupabaseBrowserClient()
-  return supabase
-    .channel(`event-${eventId}`)
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'events', filter: `id=eq.${eventId}` },
-      (payload) => {
-        const updated = payload.new as Event
-        if (updated.current_attendees !== undefined) onAttendeeChange(updated.current_attendees)
-        if (updated.status !== undefined) onStatusChange(updated.status)
-      }
-    )
-    .subscribe()
+  onStatusChange: (status: string) => void
+): () => void {
+  const s = connectSocket()
+  s.emit('join_event', eventId)
+
+  const handleAttendee = (data: AttendeeUpdate) => {
+    if (data.eventId === eventId) {
+      onAttendeeChange(data.count)
+      onStatusChange(data.status)
+    }
+  }
+  const handleStatus = (data: { eventId: string; status: string }) => {
+    if (data.eventId === eventId) onStatusChange(data.status)
+  }
+
+  s.on('attendee_update', handleAttendee)
+  s.on('status_update', handleStatus)
+
+  return () => {
+    s.emit('leave_event', eventId)
+    s.off('attendee_update', handleAttendee)
+    s.off('status_update', handleStatus)
+  }
 }
 
-export function subscribeToRegistrations(
-  eventId: string,
-  onRegistration: (payload: EventPayload<Registration>) => void
-): RealtimeChannel {
-  const supabase = getSupabaseBrowserClient()
-  return supabase
-    .channel(`registrations-${eventId}`)
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'registrations', filter: `event_id=eq.${eventId}` },
-      (payload) => onRegistration(payload as EventPayload<Registration>)
-    )
-    .subscribe()
-}
+// ── User notification room ────────────────────────────────────────────────────
 
 export function subscribeToUserNotifications(
   userId: string,
-  onNotification: (notification: Notification) => void
-): RealtimeChannel {
-  const supabase = getSupabaseBrowserClient()
-  return supabase
-    .channel(`notifications-${userId}`)
-    .on(
-      'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
-      (payload) => onNotification(payload.new as Notification)
-    )
-    .subscribe()
-}
+  onNotification: (n: unknown) => void
+): () => void {
+  const s = connectSocket()
+  s.emit('join_user', userId)
+  s.on('notification', onNotification)
 
-export function subscribeToOrganizerDashboard(
-  organizerId: string,
-  onUpdate: () => void
-): RealtimeChannel {
-  const supabase = getSupabaseBrowserClient()
-  return supabase
-    .channel(`organizer-${organizerId}`)
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'registrations' },
-      onUpdate
-    )
-    .on(
-      'postgres_changes',
-      { event: 'UPDATE', schema: 'public', table: 'events' },
-      onUpdate
-    )
-    .subscribe()
-}
-
-export function unsubscribe(channel: RealtimeChannel) {
-  const supabase = getSupabaseBrowserClient()
-  supabase.removeChannel(channel)
+  return () => {
+    s.emit('leave_user', userId)
+    s.off('notification', onNotification)
+  }
 }

@@ -1,9 +1,10 @@
 'use client'
 import { useEffect } from 'react'
-import { subscribeToUserNotifications, unsubscribe } from '@/services/realtime/subscriptions'
+import { subscribeToUserNotifications } from '@/services/realtime/subscriptions'
 import { useNotificationsStore } from '@/store/notifications.store'
 import { useAuthStore } from '@/store/auth.store'
 import { toast } from 'sonner'
+import type { Notification } from '@/types'
 
 export function useRealtimeNotifications() {
   const { user } = useAuthStore()
@@ -11,10 +12,11 @@ export function useRealtimeNotifications() {
 
   useEffect(() => {
     if (!user) return
-    const channel = subscribeToUserNotifications(user.id, (notification) => {
+    const unsubscribe = subscribeToUserNotifications(user.id, (raw) => {
+      const notification = raw as Notification
       addNotification(notification)
       toast.info(notification.title, { description: notification.body })
     })
-    return () => unsubscribe(channel)
+    return unsubscribe
   }, [user, addNotification])
 }

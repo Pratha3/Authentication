@@ -3,6 +3,7 @@ import { Event } from "../models/Event";
 import { Registration } from "../models/Registration";
 import { Bookmark } from "../models/Bookmark";
 import { AuthRequest } from "../middleware/auth";
+import { emitEventStatusUpdate } from "../sockets/io";
 import mongoose from "mongoose";
 
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -59,7 +60,8 @@ export const getEvents = async (req: Request, res: Response): Promise<void> => {
     ]);
 
     // Enrich with user-specific data
-    let enriched = events as (typeof events[0] & { isRegistered?: boolean; isBookmarked?: boolean; distance?: number })[];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let enriched: any[] = events;
     if (userId) {
       const ids = events.map((e) => e._id);
       const [regs, bms] = await Promise.all([
@@ -85,8 +87,8 @@ export const getEvents = async (req: Request, res: Response): Promise<void> => {
           ...e,
           distance: e.latitude && e.longitude ? calculateDistance(lat, lon, e.latitude, e.longitude) : undefined,
         }))
-        .filter((e) => !maxDist || (e.distance !== undefined && e.distance <= maxDist));
-      if (sortBy === "distance") enriched.sort((a, b) => (a.distance ?? 999) - (b.distance ?? 999));
+        .filter((e: any) => !maxDist || (e.distance !== undefined && e.distance <= maxDist));
+      if (sortBy === "distance") enriched.sort((a: any, b: any) => (a.distance ?? 999) - (b.distance ?? 999));
     }
 
     res.json({ data: enriched, count: total, page: pageNum, pageSize: pageSizeNum, hasMore: skip + pageSizeNum < total });
@@ -149,7 +151,8 @@ export const getEventBySlug = async (req: Request, res: Response): Promise<void>
     if (!event) { res.status(404).json({ message: "Event not found.", error: "Event not found" }); return; }
 
     const userId = (req as AuthRequest).userId;
-    let enriched: typeof event & { isRegistered?: boolean; isBookmarked?: boolean } = event;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let enriched: any = event;
     if (userId) {
       const [reg, bm] = await Promise.all([
         Registration.findOne({ eventId: event._id, userId, status: { $ne: "cancelled" } }),
@@ -187,6 +190,7 @@ export const updateEvent = async (req: AuthRequest, res: Response): Promise<void
     if (String(event.organizerId) !== req.userId) { res.status(403).json({ message: "Not authorized." }); return; }
     Object.assign(event, req.body);
     await event.save();
+    if (req.body.status) emitEventStatusUpdate(String(event._id), event.status);
     res.json({ data: event, error: null });
   } catch {
     res.status(500).json({ message: "Server error." });

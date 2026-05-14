@@ -2,6 +2,7 @@ import { Response } from "express";
 import { Registration } from "../models/Registration";
 import { Event } from "../models/Event";
 import { AuthRequest } from "../middleware/auth";
+import { emitAttendeeUpdate } from "../sockets/io";
 
 // POST /api/registrations
 export const registerForEvent = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -35,12 +36,12 @@ export const registerForEvent = async (req: AuthRequest, res: Response): Promise
     }
 
     if (status === "confirmed") {
-      await Event.findByIdAndUpdate(eventId, { $inc: { currentAttendees: 1 } });
+      const updated = await Event.findByIdAndUpdate(eventId, { $inc: { currentAttendees: 1 } }, { new: true });
+      if (updated) emitAttendeeUpdate(String(eventId), updated.currentAttendees, updated.capacity, updated.status);
     }
 
     await registration.populate([
       { path: "eventId", select: "title slug bannerUrl startDate endDate city status category" },
-      { path: "userId", select: "email name" },
     ]);
 
     res.status(201).json({ data: registration, error: null });
@@ -62,7 +63,12 @@ export const cancelRegistration = async (req: AuthRequest, res: Response): Promi
     await registration.save();
 
     if (wasConfirmed) {
-      await Event.findByIdAndUpdate(req.params.eventId, { $inc: { currentAttendees: -1 } });
+      const updated = await Event.findByIdAndUpdate(
+        req.params.eventId,
+        { $inc: { currentAttendees: -1 } },
+        { new: true }
+      );
+      if (updated) emitAttendeeUpdate(String(req.params.eventId), updated.currentAttendees, updated.capacity, updated.status);
     }
 
     res.json({ data: null, error: null });

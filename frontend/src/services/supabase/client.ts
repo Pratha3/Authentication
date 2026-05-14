@@ -1,16 +1,3 @@
-import { createBrowserClient } from '@supabase/ssr'
-import type { Database } from '@/types/database'
-
-let client: ReturnType<typeof createBrowserClient<Database>> | null = null
-
-export function getSupabaseBrowserClient() {
-  if (!client) {
-    client = createBrowserClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-  }
-  return client
-}
-
-export const supabase = getSupabaseBrowserClient
+// Supabase removed — backend is MongoDB/Express.
+// This file is kept as an empty stub so existing imports don't break during migration.
+export {}

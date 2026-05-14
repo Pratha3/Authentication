@@ -1,12 +1,11 @@
-import { type NextRequest } from 'next/server'
-import { updateSession } from '@/services/supabase/middleware'
+import { type NextRequest, NextResponse } from 'next/server'
 
-export async function middleware(request: NextRequest) {
-  return await updateSession(request)
+// JWT lives in localStorage — auth guards run client-side via useAuth hook.
+// This middleware only ensures Next.js static assets bypass any future logic.
+export function middleware(_request: NextRequest) {
+  return NextResponse.next()
 }
 
 export const config = {
-  matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
-  ],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
 }

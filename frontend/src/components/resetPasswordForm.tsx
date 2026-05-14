@@ -136,7 +136,7 @@ export default function ResetPasswordForm() {
             </CardContent>
 
             <CardFooter className="flex flex-col gap-3 pt-2">
-              <Button type="submit" className="w-full" size="lg" isLoading={isLoading}>
+              <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
                 Update Password
               </Button>
               <Link href="/" className="text-sm text-muted-foreground hover:text-foreground transition-colors text-center w-full">

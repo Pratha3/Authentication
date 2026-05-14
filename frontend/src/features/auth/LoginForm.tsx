@@ -8,11 +8,12 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { loginSchema, type LoginInput } from './schemas'
-import { getSupabaseBrowserClient } from '@/services/supabase/client'
+import { authApi, setToken } from '@/lib/api'
+import { useAuthStore } from '@/store/auth.store'
+import { fetchProfile } from '@/services/api/profiles.service'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { GoogleOAuthButton } from './GoogleOAuthButton'
 import { ROUTES } from '@/constants'
 
 export function LoginForm() {
@@ -20,7 +21,8 @@ export function LoginForm() {
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
-  const next = searchParams.get('next') ?? ROUTES.DISCOVER
+  const next = searchParams?.get('next') ?? ROUTES.DISCOVER
+  const { setUser, setToken: storeToken, setProfile } = useAuthStore()
 
   const { register, handleSubmit, formState: { errors } } = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
@@ -28,16 +30,20 @@ export function LoginForm() {
 
   const onSubmit = async (values: LoginInput) => {
     setIsLoading(true)
-    const supabase = getSupabaseBrowserClient()
-    const { error } = await supabase.auth.signInWithPassword(values)
-    if (error) {
-      toast.error(error.message)
+    try {
+      const { token, user } = await authApi.login(values.email, values.password)
+      setToken(token)
+      storeToken(token)
+      setUser(user)
+      const { data: profile } = await fetchProfile(user.id)
+      setProfile(profile)
+      toast.success('Welcome back!')
+      router.push(next)
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Login failed')
+    } finally {
       setIsLoading(false)
-      return
     }
-    toast.success('Welcome back!')
-    router.push(next)
-    router.refresh()
   }
 
   return (
@@ -51,19 +57,10 @@ export function LoginForm() {
         <p className="text-muted-foreground">Sign in to discover amazing events</p>
       </div>
 
-      <GoogleOAuthButton />
-
-      <div className="relative">
-        <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
-        <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-background px-2 text-muted-foreground">Or continue with email</span>
-        </div>
-      </div>
-
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
-          <Input id="email" type="email" placeholder="you@example.com" {...register('email')} />
+          <Input id="email" type="email" placeholder="you@example.com" autoComplete="email" {...register('email')} />
           {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
         </div>
 
@@ -77,9 +74,14 @@ export function LoginForm() {
               id="password"
               type={showPassword ? 'text' : 'password'}
               placeholder="••••••••"
+              autoComplete="current-password"
               {...register('password')}
             />
-            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
@@ -87,7 +89,7 @@ export function LoginForm() {
         </div>
 
         <Button type="submit" className="w-full" disabled={isLoading}>
-          {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Signing in...</> : 'Sign in'}
+          {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Signing in…</> : 'Sign in'}
         </Button>
       </form>
 

@@ -217,7 +217,7 @@ export default function AuthForm({
             </CardContent>
 
             <CardFooter className="flex flex-col gap-3 pt-2">
-              <Button type="submit" className="w-full" size="lg" isLoading={isLoading}>
+              <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
                 {isForgot ? "Send Reset Link" : buttonText}
               </Button>
 

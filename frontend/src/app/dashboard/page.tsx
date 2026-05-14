@@ -1,5 +1,6 @@
-import { DashboardClient } from "@/components/DashboardClient";
+import { redirect } from 'next/navigation'
 
+// Legacy route — redirect to the new discover page
 export default function DashboardPage() {
-  return <DashboardClient />;
+  redirect('/discover')
 }

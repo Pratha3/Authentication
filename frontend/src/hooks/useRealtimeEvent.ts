@@ -1,18 +1,17 @@
 'use client'
 import { useEffect } from 'react'
-import { subscribeToEventUpdates, unsubscribe } from '@/services/realtime/subscriptions'
+import { subscribeToEventUpdates } from '@/services/realtime/subscriptions'
 import { useEventsStore } from '@/store/events.store'
-import type { Event } from '@/types'
 
 export function useRealtimeEvent(eventId: string) {
   const { updateEventAttendees, updateEventStatus } = useEventsStore()
 
   useEffect(() => {
-    const channel = subscribeToEventUpdates(
+    const unsubscribe = subscribeToEventUpdates(
       eventId,
       (count) => updateEventAttendees(eventId, count),
-      (status) => updateEventStatus(eventId, status as Event['status'])
+      (status) => updateEventStatus(eventId, status as Parameters<typeof updateEventStatus>[1])
     )
-    return () => unsubscribe(channel)
+    return unsubscribe
   }, [eventId, updateEventAttendees, updateEventStatus])
 }
