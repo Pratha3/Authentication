@@ -1,7 +1,6 @@
 import { eventsApi } from '@/lib/api'
 import type { Event, EventFilters, ApiResponse, PaginatedResponse } from '@/types'
 import { ITEMS_PER_PAGE } from '@/constants'
-import { sampleEvents } from '@/constants/sampleEvents'
 
 export type EventPayload = {
   title: string
@@ -40,9 +39,7 @@ export async function fetchEvents(
 
   const params: Record<string, string | number | boolean | string[] | undefined> = {
     status: Array.isArray(status) ? status.join(',') : status,
-    sortBy,
-    page,
-    pageSize,
+    sortBy, page, pageSize,
   }
 
   if (category?.length) params.category = category.join(',')
@@ -55,18 +52,11 @@ export async function fetchEvents(
   if (distance) params.distance = distance
   if (userId) params.userId = userId
 
-  const hasActiveFilters = Boolean(category?.length || dateFrom || dateTo || isFree !== undefined || search)
-
   try {
     const res = await eventsApi.list(params)
-    const result = res as PaginatedResponse<Event>
-    if (result.data.length === 0 && page === 1 && !hasActiveFilters) {
-      return { data: sampleEvents, count: sampleEvents.length, page, pageSize, hasMore: false }
-    }
-    return result
+    return res as PaginatedResponse<Event>
   } catch {
-    const data = page === 1 && !hasActiveFilters ? sampleEvents : []
-    return { data, count: data.length, page, pageSize, hasMore: false }
+    return { data: [], count: 0, page: page as number, pageSize: pageSize as number, hasMore: false }
   }
 }
 
@@ -75,8 +65,6 @@ export async function fetchEventBySlug(slug: string, _userId?: string): Promise<
     const res = await eventsApi.bySlug(slug)
     return { data: res.data as Event, error: res.error }
   } catch (err: unknown) {
-    const sample = sampleEvents.find((event) => event.slug === slug)
-    if (sample) return { data: sample, error: null }
     return { data: null, error: err instanceof Error ? err.message : 'Event not found' }
   }
 }
@@ -84,29 +72,22 @@ export async function fetchEventBySlug(slug: string, _userId?: string): Promise<
 export async function fetchFeaturedEvents(): Promise<ApiResponse<Event[]>> {
   try {
     const res = await eventsApi.featured()
-    const data = res.data as Event[]
-    return { data: data.length ? data : sampleEvents, error: null }
+    return { data: res.data as Event[], error: null }
   } catch (err: unknown) {
-    return { data: sampleEvents, error: err instanceof Error ? err.message : 'Failed to fetch featured events' }
+    return { data: [], error: err instanceof Error ? err.message : 'Failed to fetch featured events' }
   }
 }
 
-export async function fetchNearbyEvents(
-  latitude: number,
-  longitude: number,
-  radiusKm = 10
-): Promise<ApiResponse<Event[]>> {
+export async function fetchNearbyEvents(lat: number, lon: number, radiusKm = 10): Promise<ApiResponse<Event[]>> {
   try {
-    const res = await eventsApi.nearby(latitude, longitude, radiusKm)
+    const res = await eventsApi.nearby(lat, lon, radiusKm)
     return { data: res.data as Event[], error: null }
   } catch (err: unknown) {
     return { data: null, error: err instanceof Error ? err.message : 'Failed to fetch nearby events' }
   }
 }
 
-export async function createEvent(
-  payload: EventPayload
-): Promise<ApiResponse<Event>> {
+export async function createEvent(payload: EventPayload): Promise<ApiResponse<Event>> {
   try {
     const res = await eventsApi.create(payload)
     return { data: res.data as Event, error: null }

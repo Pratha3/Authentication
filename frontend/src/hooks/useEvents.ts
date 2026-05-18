@@ -1,11 +1,15 @@
 'use client'
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useEventsStore } from '@/store/events.store'
 import { useAuthStore } from '@/store/auth.store'
 import { fetchEvents, fetchFeaturedEvents } from '@/services/api/events.service'
+import type { Event } from '@/types'
 
 export function useEvents() {
-  const { events, filters, isLoadingEvents, hasMore, page, setEvents, appendEvents, setLoadingEvents, setHasMore, setPage, setTotalCount } = useEventsStore()
+  const {
+    events, filters, isLoadingEvents, hasMore, page,
+    setEvents, appendEvents, setLoadingEvents, setHasMore, setPage, setTotalCount,
+  } = useEventsStore()
   const { user } = useAuthStore()
 
   const loadEvents = useCallback(async (reset = false) => {
@@ -13,11 +17,8 @@ export function useEvents() {
     setLoadingEvents(true)
     const currentPage = reset ? 1 : page
     const result = await fetchEvents({ ...filters, page: currentPage }, user?.id)
-    if (reset) {
-      setEvents(result.data)
-    } else {
-      appendEvents(result.data)
-    }
+    if (reset) setEvents(result.data)
+    else appendEvents(result.data)
     setHasMore(result.hasMore)
     setTotalCount(result.count)
     setPage(currentPage + 1)
@@ -32,14 +33,16 @@ export function useEvents() {
   return { events, isLoading: isLoadingEvents, hasMore, loadEvents, loadMore }
 }
 
-export function useFeaturedEvents() {
+export function useFeaturedEvents(): { events: Event[]; isLoading: boolean } {
   const { featuredEvents, setFeaturedEvents } = useEventsStore()
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
+    setIsLoading(true)
     fetchFeaturedEvents().then(({ data }) => {
       if (data) setFeaturedEvents(data)
-    })
+    }).finally(() => setIsLoading(false))
   }, [setFeaturedEvents])
 
-  return featuredEvents
+  return { events: featuredEvents, isLoading }
 }

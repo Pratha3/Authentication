@@ -309,13 +309,18 @@ export const profilesApi = {
 
 // ─── Registrations ────────────────────────────────────────────────────────────
 export const registrationsApi = {
-  register: (eventId: string) =>
-    request<{ data: unknown }>('/registrations', { method: 'POST', body: JSON.stringify({ eventId }) }),
+  register: (eventId: string, attendeeDetails?: Record<string, unknown>) =>
+    request<{ data: unknown; message: string }>('/registrations', {
+      method: 'POST',
+      body: JSON.stringify({ eventId, attendeeDetails: attendeeDetails ?? {} }),
+    }),
   cancel: (eventId: string) =>
     request<{ data: null }>(`/registrations/${eventId}/cancel`, { method: 'PATCH' }),
   myRegistrations: () => request<{ data: unknown[] }>('/registrations/my'),
   eventRegistrations: (eventId: string) =>
-    request<{ data: unknown[] }>(`/registrations/event/${eventId}`),
+    request<{ data: unknown[]; count: number }>(`/registrations/event/${eventId}`),
+  checkIn: (registrationId: string) =>
+    request<{ data: unknown }>(`/registrations/${registrationId}/checkin`, { method: 'PATCH' }),
 }
 
 // ─── Bookmarks ────────────────────────────────────────────────────────────────

@@ -2,35 +2,29 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { Bell, Bookmark, Compass, Menu, User, Zap } from 'lucide-react'
+import { Bookmark, Compass, Menu, User, Zap, CalendarDays, LayoutDashboard, ShieldCheck } from 'lucide-react'
 import { useAuthStore } from '@/store/auth.store'
-import { useNotificationsStore } from '@/store/notifications.store'
 import { useUIStore } from '@/store/ui.store'
 import { useSignOut } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ThemeToggle } from '@/components/shared/ThemeToggle'
+import { NotificationDropdown } from '@/components/layout/NotificationDropdown'
 import { getInitials } from '@/lib/utils'
 import { ROUTES } from '@/constants'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
 export function Navbar() {
   const pathname = usePathname()
   const { user, profile } = useAuthStore()
-  const { unreadCount } = useNotificationsStore()
   const { toggleSidebar } = useUIStore()
   const signOut = useSignOut()
 
-  const navLinks = [
-    { href: ROUTES.DISCOVER, label: 'Discover', icon: Compass },
-  ]
+  const isOrganizer = profile?.role === 'organizer' || profile?.role === 'admin'
+  const isAdmin = profile?.role === 'admin'
 
   return (
     <motion.header
@@ -52,78 +46,71 @@ export function Navbar() {
           </Link>
         </div>
 
-        {/* Nav Links */}
+        {/* Nav */}
         <nav className="hidden md:flex items-center gap-1">
-          {navLinks.map(({ href, label, icon: Icon }) => (
-            <Link
-              key={href}
-              href={href}
-              className={`flex items-center gap-1.5 px-3 py-2 text-sm rounded-md transition-colors ${
-                pathname === href ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
-              }`}
-            >
-              <Icon className="h-4 w-4" />
-              {label}
-            </Link>
-          ))}
+          <Link
+            href={ROUTES.DISCOVER}
+            className={`flex items-center gap-1.5 px-3 py-2 text-sm rounded-md transition-colors ${
+              pathname === ROUTES.DISCOVER
+                ? 'bg-accent text-accent-foreground'
+                : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+            }`}
+          >
+            <Compass className="h-4 w-4" />Discover
+          </Link>
         </nav>
 
-        {/* Right side */}
-        <div className="flex items-center gap-2">
+        {/* Right */}
+        <div className="flex items-center gap-1.5">
           <ThemeToggle />
 
           {user ? (
             <>
-              <Button variant="ghost" size="icon" asChild className="relative">
-                <Link href={ROUTES.BOOKMARKS}>
+              <Button variant="ghost" size="icon" asChild>
+                <Link href={ROUTES.BOOKMARKS} aria-label="Bookmarks">
                   <Bookmark className="h-5 w-5" />
                 </Link>
               </Button>
 
-              <Button variant="ghost" size="icon" asChild className="relative">
-                <Link href={ROUTES.NOTIFICATIONS}>
-                  <Bell className="h-5 w-5" />
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground font-bold">
-                      {unreadCount > 9 ? '9+' : unreadCount}
-                    </span>
-                  )}
-                </Link>
-              </Button>
+              {/* Real-time notification dropdown */}
+              <NotificationDropdown />
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+                  <Button variant="ghost" className="relative h-9 w-9 rounded-full p-0">
                     <Avatar className="h-9 w-9">
                       <AvatarImage src={profile?.avatar_url ?? ''} alt={profile?.full_name ?? ''} />
-                      <AvatarFallback>{getInitials(profile?.full_name ?? 'U')}</AvatarFallback>
+                      <AvatarFallback className="text-xs">{getInitials(profile?.full_name ?? 'U')}</AvatarFallback>
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel>
-                    <p className="font-medium">{profile?.full_name}</p>
-                    <p className="text-xs text-muted-foreground">{user.email}</p>
+                  <DropdownMenuLabel className="pb-2">
+                    <p className="font-semibold text-sm">{profile?.full_name ?? 'User'}</p>
+                    <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                    <span className="mt-1 inline-block text-[10px] rounded-full px-1.5 py-0.5 bg-primary/10 text-primary capitalize font-medium">
+                      {profile?.role ?? 'user'}
+                    </span>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <Link href={ROUTES.PROFILE}><User className="mr-2 h-4 w-4" />Profile</Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link href={ROUTES.REGISTERED}><Compass className="mr-2 h-4 w-4" />My Events</Link>
+                    <Link href={ROUTES.REGISTERED}><CalendarDays className="mr-2 h-4 w-4" />My Registrations</Link>
                   </DropdownMenuItem>
-                  {profile?.role === 'organizer' || profile?.role === 'admin' ? (
+                  {isOrganizer && (
                     <DropdownMenuItem asChild>
-                      <Link href={ROUTES.ORGANIZER.DASHBOARD}><Zap className="mr-2 h-4 w-4" />Dashboard</Link>
+                      <Link href={ROUTES.ORGANIZER.DASHBOARD}><LayoutDashboard className="mr-2 h-4 w-4" />Organizer Dashboard</Link>
                     </DropdownMenuItem>
-                  ) : null}
-                  {profile?.role === 'admin' ? (
+                  )}
+                  {isAdmin && (
                     <DropdownMenuItem asChild>
-                      <Link href={ROUTES.ADMIN}><Zap className="mr-2 h-4 w-4" />Admin Panel</Link>
+                      <Link href={ROUTES.ADMIN}><ShieldCheck className="mr-2 h-4 w-4" />Admin Panel</Link>
                     </DropdownMenuItem>
-                  ) : null}
+                  )}
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={signOut} className="text-destructive focus:text-destructive">
+                  <DropdownMenuItem onClick={signOut} className="text-destructive focus:text-destructive cursor-pointer">
                     Sign out
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -131,12 +118,8 @@ export function Navbar() {
             </>
           ) : (
             <div className="flex items-center gap-2">
-              <Button variant="ghost" asChild size="sm">
-                <Link href={ROUTES.LOGIN}>Sign in</Link>
-              </Button>
-              <Button asChild size="sm">
-                <Link href={ROUTES.SIGNUP}>Get started</Link>
-              </Button>
+              <Button variant="ghost" asChild size="sm"><Link href={ROUTES.LOGIN}>Sign in</Link></Button>
+              <Button asChild size="sm"><Link href={ROUTES.SIGNUP}>Get started</Link></Button>
             </div>
           )}
         </div>

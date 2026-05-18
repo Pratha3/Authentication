@@ -294,6 +294,14 @@ export const updateEvent = async (req: AuthRequest, res: Response): Promise<void
 
     if (req.body.status && req.body.status !== prevStatus) {
       emitEventStatusUpdate(String(event._id), event.status);
+      // Notify all registered attendees of status change (fire-and-forget)
+      import("../services/notification.service").then(({ notifyEventStatusUpdate }) => {
+        const { Registration } = require("../models/Registration");
+        Registration.find({ eventId: event._id, status: { $ne: "cancelled" } })
+          .distinct("userId")
+          .then((userIds: string[]) => notifyEventStatusUpdate(event, userIds.map(String)))
+          .catch(() => {});
+      }).catch(() => {});
     }
 
     const updated = await Event.findById(event._id)

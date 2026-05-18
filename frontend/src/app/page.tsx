@@ -1,16 +1,17 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { ArrowRight, Compass, Zap, Users, Map, Star } from 'lucide-react'
+import { ArrowRight, Zap, Users, Map, Star } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Navbar } from '@/components/layout/Navbar'
 import { FeaturedEventsSection } from '@/components/events/FeaturedEventsSection'
 import { CategoryGrid } from '@/components/events/CategoryGrid'
+import { HeroCTA } from '@/components/shared/HeroCTA'
 import { StartOrganizingButton } from '@/components/shared/StartOrganizingButton'
 import { ROUTES } from '@/constants'
 
 export const metadata: Metadata = {
-  title: 'EventSphere - Discover Local Events Near You',
+  title: 'EventSphere — Discover Local Events Near You',
 }
 
 export default function LandingPage() {
@@ -18,6 +19,7 @@ export default function LandingPage() {
     <>
       <Navbar />
       <main className="flex flex-col">
+        {/* ── Hero ── */}
         <section className="relative overflow-hidden section-gradient">
           <div className="container py-24 md:py-36 text-center">
             <Badge variant="outline" className="mb-6 border-primary/30 text-primary bg-primary/10 inline-flex">
@@ -28,20 +30,13 @@ export default function LandingPage() {
               <span className="gradient-text block">Move You</span>
             </h1>
             <p className="mx-auto max-w-2xl text-lg text-muted-foreground mb-8 text-balance">
-              From marathons to meetups, cafe gatherings to community festivals - find and join experiences that matter to you, happening right in your neighborhood.
+              From marathons to meetups, café gatherings to community festivals — find and join
+              experiences that matter to you, happening right in your neighborhood.
             </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Button asChild size="lg" className="glow">
-                <Link href={ROUTES.DISCOVER}>
-                  <Compass className="mr-2 h-5 w-5" />
-                  Explore Events
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-              <Button asChild size="lg" variant="outline">
-                <Link href={ROUTES.SIGNUP}>Create Account - It&apos;s Free</Link>
-              </Button>
-            </div>
+
+            {/* Auth-aware CTA — shows Explore + Create Account for guests,
+                Explore + Dashboard/Create Event for logged-in users */}
+            <HeroCTA />
 
             <div className="mt-16 grid grid-cols-3 gap-4 max-w-lg mx-auto">
               {[
@@ -59,6 +54,7 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* ── Featured Events ── */}
         <section className="container py-16">
           <div className="flex items-center justify-between mb-8">
             <div>
@@ -72,6 +68,7 @@ export default function LandingPage() {
           <FeaturedEventsSection />
         </section>
 
+        {/* ── Categories ── */}
         <section className="container py-8 pb-16">
           <div className="mb-8">
             <h2 className="text-2xl font-bold">Browse by Category</h2>
@@ -80,12 +77,14 @@ export default function LandingPage() {
           <CategoryGrid />
         </section>
 
+        {/* ── Organizer CTA ── */}
         <section className="border-t border-border/40 bg-card/30">
           <div className="container py-16 text-center">
             <Star className="h-10 w-10 text-primary mx-auto mb-4" />
             <h2 className="text-3xl font-bold mb-4">Host Your Own Event</h2>
             <p className="text-muted-foreground max-w-md mx-auto mb-6">
-              Become an organizer and bring your community together. Create events, manage attendees, and grow your audience.
+              Become an organizer and bring your community together. Create events,
+              manage attendees, and grow your audience.
             </p>
             <StartOrganizingButton />
           </div>

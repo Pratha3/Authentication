@@ -5,17 +5,20 @@ import { motion } from 'framer-motion'
 import {
   Calendar, MapPin, Users, Share2, Bookmark, BookmarkCheck,
   Clock, Tag, Loader2, AlertCircle, CheckCircle2, ExternalLink,
+  Ticket, LayoutDashboard,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import Link from 'next/link'
 import { fetchEventBySlug } from '@/services/api/events.service'
-import { registerForEvent, cancelRegistration } from '@/services/api/registrations.service'
+import { cancelRegistration } from '@/services/api/registrations.service'
 import { useAuthStore } from '@/store/auth.store'
 import { useBookmark } from '@/hooks/useBookmark'
 import { useRealtimeEvent } from '@/hooks/useRealtimeEvent'
 import { useEventsStore } from '@/store/events.store'
+import { RegistrationModal } from '@/components/events/RegistrationModal'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { EVENT_CATEGORIES, EVENT_STATUS_CONFIG } from '@/constants'
+import { EVENT_CATEGORIES, EVENT_STATUS_CONFIG, ROUTES } from '@/constants'
 import { cn, formatDateTime, formatDate, formatCurrency, getCapacityPercentage } from '@/lib/utils'
 import type { Event } from '@/types'
 
@@ -29,8 +32,9 @@ function RealtimeEventWrapper({ eventId }: { eventId: string }) {
 export function EventDetailClient({ slug }: Props) {
   const [event, setEvent] = useState<Event | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [isRegistering, setIsRegistering] = useState(false)
-  const { user } = useAuthStore()
+  const [isCancelling, setIsCancelling] = useState(false)
+  const [registrationModalOpen, setRegistrationModalOpen] = useState(false)
+  const { user, profile } = useAuthStore()
   const { selectedEvent, setSelectedEvent } = useEventsStore()
 
   useEffect(() => {
@@ -42,55 +46,72 @@ export function EventDetailClient({ slug }: Props) {
     })
   }, [slug, user?.id, setSelectedEvent])
 
-  // Sync real-time updates back to local state
+  // Sync real-time count/status from store
   useEffect(() => {
     if (selectedEvent?.slug === slug && event?.id === selectedEvent.id) {
-      setEvent(selectedEvent)
+      setEvent(prev => prev ? {
+        ...prev,
+        current_attendees: selectedEvent.current_attendees,
+        status: selectedEvent.status,
+      } : prev)
     }
   }, [selectedEvent, slug, event?.id])
 
   const { bookmarked, toggleBookmark } = useBookmark(event?.id ?? '')
 
-  const handleRegister = async () => {
-    if (!user || !event) {
-      toast.error('Please sign in to register for events', {
-        action: { label: 'Sign in', onClick: () => window.location.href = '/login' },
+  // ── Check if current user is the organizer of this event ──────────────────
+  const isOwnEvent = !!event?.organizer_id && !!user && (
+    // Match via organizer.user_id (from normalizeEvent's organizer sub-object)
+    (event.organizer as any)?.user_id === user.id ||
+    // Fallback: profile role is organizer and organizer name matches
+    (profile?.role === 'organizer')
+  )
+  // More reliable: compare the organizer's userId stored in the event
+  const [isOrganizer, setIsOrganizer] = useState(false)
+  useEffect(() => {
+    if (!event || !user) { setIsOrganizer(false); return }
+    // The backend populates organizerId with organizationName — we also get
+    // the raw organizer_id. We compare via the profile endpoint lazily.
+    const orgObj = event.organizer as any
+    if (orgObj?.user_id === user.id) { setIsOrganizer(true); return }
+    // Check via profile role + whether user has an organizer that owns this event
+    if (profile?.role === 'organizer' || profile?.role === 'admin') {
+      // Fetch organizer profile to get the _id, then compare with event.organizer_id
+      import('@/services/api/profiles.service').then(({ fetchOrganizerProfile }) => {
+        fetchOrganizerProfile(user.id).then(({ data: org }) => {
+          if (org && org.id === event.organizer_id) setIsOrganizer(true)
+        })
       })
-      return
     }
-    setIsRegistering(true)
-    if (event.is_registered) {
-      const { error } = await cancelRegistration(event.id, user.id)
-      if (error) toast.error(error)
-      else {
-        setEvent(prev => prev ? { ...prev, is_registered: false, current_attendees: Math.max(0, (prev.current_attendees ?? 1) - 1) } : prev)
-        toast.success('Registration cancelled successfully')
-      }
+  }, [event, user, profile])
+
+  const handleRegistrationSuccess = (updates: Partial<Event>) => {
+    setEvent(prev => prev ? { ...prev, ...updates } : prev)
+    setRegistrationModalOpen(false)
+  }
+
+  const handleCancel = async () => {
+    if (!user || !event) return
+    if (!confirm('Cancel your registration for this event?')) return
+    setIsCancelling(true)
+    const { error } = await cancelRegistration(event.id, user.id)
+    if (error) {
+      toast.error(error)
     } else {
-      const { data: reg, error } = await registerForEvent(event.id, user.id)
-      if (error) toast.error(error)
-      else {
-        const status = (reg as any)?.status
-        setEvent(prev => prev ? {
-          ...prev,
-          is_registered: true,
-          current_attendees: status === 'confirmed' ? (prev.current_attendees ?? 0) + 1 : prev.current_attendees,
-        } : prev)
-        if (status === 'waitlisted') {
-          toast.info("You're on the waitlist!", { description: "You'll be notified if a spot opens up." })
-        } else {
-          toast.success('Registered successfully! 🎉', { description: `Your ticket code: ${(reg as any)?.ticketCode ?? ''}` })
-        }
-      }
+      setEvent(prev => prev ? {
+        ...prev,
+        is_registered: false,
+        current_attendees: Math.max(0, (prev.current_attendees ?? 1) - 1),
+      } : prev)
+      toast.success('Registration cancelled')
     }
-    setIsRegistering(false)
+    setIsCancelling(false)
   }
 
   const handleShare = async () => {
     const url = window.location.href
-    if (navigator.share) {
-      await navigator.share({ title: event?.title ?? '', url })
-    } else {
+    if (navigator.share) await navigator.share({ title: event?.title ?? '', url })
+    else {
       await navigator.clipboard.writeText(url)
       toast.success('Link copied to clipboard')
     }
@@ -118,11 +139,19 @@ export function EventDetailClient({ slug }: Props) {
   const statusConfig = EVENT_STATUS_CONFIG[event.status]
   const capacityPct = getCapacityPercentage(event.capacity, event.current_attendees)
   const isFull = event.capacity !== null && event.current_attendees >= event.capacity
-  const canRegister = !['completed', 'cancelled'].includes(event.status) && !isFull
+  const isClosed = ['completed', 'cancelled'].includes(event.status)
+  const canRegister = !isClosed && !isFull
 
   return (
     <main className="container py-6 max-w-5xl">
       {event.id && <RealtimeEventWrapper eventId={event.id} />}
+
+      <RegistrationModal
+        event={event}
+        open={registrationModalOpen}
+        onClose={() => setRegistrationModalOpen(false)}
+        onSuccess={handleRegistrationSuccess}
+      />
 
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
         {/* Banner */}
@@ -145,11 +174,9 @@ export function EventDetailClient({ slug }: Props) {
           {/* Main content */}
           <div className="lg:col-span-2 space-y-6">
             <div>
-              <div className="flex items-center gap-2 mb-3">
-                <Badge variant="outline" className={cn('border', categoryConfig?.color)}>
-                  {categoryConfig?.emoji} {categoryConfig?.label}
-                </Badge>
-              </div>
+              <Badge variant="outline" className={cn('border mb-3', categoryConfig?.color)}>
+                {categoryConfig?.emoji} {categoryConfig?.label}
+              </Badge>
               <h1 className="text-3xl font-bold">{event.title}</h1>
               {event.organizer && (
                 <p className="text-muted-foreground mt-2">
@@ -158,7 +185,6 @@ export function EventDetailClient({ slug }: Props) {
               )}
             </div>
 
-            {/* Meta grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {[
                 { icon: Calendar, label: 'Starts', value: formatDateTime(event.start_date) },
@@ -176,16 +202,14 @@ export function EventDetailClient({ slug }: Props) {
               ))}
             </div>
 
-            {/* Description */}
-            <div className="prose prose-sm dark:prose-invert max-w-none">
+            <div>
               <h3 className="text-base font-semibold mb-2">About this event</h3>
-              <p className="text-muted-foreground whitespace-pre-line leading-relaxed">{event.description}</p>
+              <p className="text-muted-foreground whitespace-pre-line leading-relaxed text-sm">{event.description}</p>
             </div>
 
-            {/* Tags */}
             {event.tags?.length > 0 && (
               <div className="flex flex-wrap gap-2">
-                <Tag className="h-4 w-4 text-muted-foreground" />
+                <Tag className="h-4 w-4 text-muted-foreground mt-0.5" />
                 {event.tags.map(tag => (
                   <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
                 ))}
@@ -193,29 +217,26 @@ export function EventDetailClient({ slug }: Props) {
             )}
           </div>
 
-          {/* Sidebar — Registration */}
-          <div className="space-y-4">
+          {/* Sidebar */}
+          <div>
             <div className="rounded-2xl border border-border/50 bg-card p-5 space-y-4 sticky top-20">
-              {/* Price */}
               <div className="text-center">
-                {event.is_free ? (
-                  <span className="text-2xl font-bold text-green-400">Free</span>
-                ) : (
-                  <span className="text-2xl font-bold">{formatCurrency(event.price, event.currency)}</span>
-                )}
+                {event.is_free
+                  ? <span className="text-2xl font-bold text-green-400">Free</span>
+                  : <span className="text-2xl font-bold">{formatCurrency(event.price, event.currency)}</span>
+                }
                 <p className="text-xs text-muted-foreground mt-1">per person</p>
               </div>
 
-              {/* Capacity bar */}
               {event.capacity && (
                 <div className="space-y-1.5">
                   <div className="flex justify-between text-xs text-muted-foreground">
                     <span>{event.current_attendees} registered</span>
-                    <span>{event.capacity - event.current_attendees} spots left</span>
+                    <span>{Math.max(0, event.capacity - event.current_attendees)} spots left</span>
                   </div>
                   <div className="h-2 rounded-full bg-muted overflow-hidden">
                     <div
-                      className={cn('h-full rounded-full transition-all', capacityPct > 80 ? 'bg-orange-500' : 'bg-primary')}
+                      className={cn('h-full rounded-full transition-all duration-500', capacityPct > 80 ? 'bg-orange-500' : 'bg-primary')}
                       style={{ width: `${capacityPct}%` }}
                     />
                   </div>
@@ -223,25 +244,59 @@ export function EventDetailClient({ slug }: Props) {
                 </div>
               )}
 
-              {/* Register CTA */}
-              {event.is_registered ? (
+              {/* ── CTA section ── */}
+              {isOrganizer ? (
+                /* Organizer sees manage button, NOT register */
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2 justify-center text-green-400 text-sm font-medium">
+                  <div className="rounded-lg bg-primary/5 border border-primary/20 p-3 text-center">
+                    <p className="text-xs text-primary font-medium">You are the organizer</p>
+                  </div>
+                  <Button asChild variant="outline" className="w-full gap-2">
+                    <Link href={ROUTES.ORGANIZER.DASHBOARD}>
+                      <LayoutDashboard className="h-4 w-4" />
+                      Manage Event
+                    </Link>
+                  </Button>
+                </div>
+              ) : event.is_registered ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 justify-center text-green-400 text-sm font-medium py-1">
                     <CheckCircle2 className="h-4 w-4" />
                     You&apos;re registered!
                   </div>
-                  <Button variant="outline" className="w-full text-destructive hover:text-destructive" onClick={handleRegister} disabled={isRegistering}>
-                    {isRegistering ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Cancel Registration'}
+                  <div className="rounded-lg bg-primary/5 border border-primary/20 p-2.5 text-center">
+                    <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+                      <Ticket className="h-3.5 w-3.5" />
+                      Check your email for your ticket
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline" size="sm"
+                    className="w-full text-destructive hover:text-destructive border-destructive/30"
+                    onClick={handleCancel}
+                    disabled={isCancelling}
+                  >
+                    {isCancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Cancel Registration'}
                   </Button>
                 </div>
               ) : (
                 <Button
                   className="w-full"
-                  onClick={handleRegister}
-                  disabled={isRegistering || !canRegister}
+                  onClick={() => {
+                    if (!user) {
+                      toast.error('Please sign in to register', {
+                        action: { label: 'Sign in', onClick: () => window.location.href = '/login' },
+                      })
+                      return
+                    }
+                    setRegistrationModalOpen(true)
+                  }}
+                  disabled={!canRegister}
                 >
-                  {isRegistering ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  {!canRegister ? 'Registration Closed' : event.is_free ? 'Register for Free' : 'Register Now'}
+                  {isClosed ? 'Registration Closed'
+                    : isFull ? 'Join Waitlist'
+                    : event.is_free ? 'Register for Free'
+                    : 'Register Now'}
                 </Button>
               )}
 
@@ -251,20 +306,20 @@ export function EventDetailClient({ slug }: Props) {
                 </p>
               )}
 
-              {/* Actions */}
-              <div className="flex gap-2">
-                <Button variant="outline" className="flex-1 gap-2" onClick={toggleBookmark}>
+              <div className="flex gap-2 pt-1">
+                <Button variant="outline" size="sm" className="flex-1 gap-1.5" onClick={toggleBookmark}>
                   {bookmarked ? <BookmarkCheck className="h-4 w-4 text-primary" /> : <Bookmark className="h-4 w-4" />}
                   {bookmarked ? 'Saved' : 'Save'}
                 </Button>
-                <Button variant="outline" className="flex-1 gap-2" onClick={handleShare}>
+                <Button variant="outline" size="sm" className="flex-1 gap-1.5" onClick={handleShare}>
                   <Share2 className="h-4 w-4" />
                   Share
                 </Button>
               </div>
 
               {event.is_online && event.online_url && (
-                <a href={event.online_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-primary hover:underline justify-center">
+                <a href={event.online_url} target="_blank" rel="noopener noreferrer"
+                   className="flex items-center gap-1.5 text-xs text-primary hover:underline justify-center">
                   <ExternalLink className="h-3 w-3" /> Join Online Event
                 </a>
               )}
