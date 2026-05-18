@@ -20,6 +20,7 @@ import registrationRoutes from './routes/registrationRoutes'
 import bookmarkRoutes from './routes/bookmarkRoutes'
 import notificationRoutes from './routes/notificationRoutes'
 import uploadRoutes from './routes/uploadRoutes'
+import testRoutes from './routes/testRoutes'
 import { initSockets } from './sockets/io'
 
 dotenv.config()
@@ -52,6 +53,9 @@ app.use('/api/registrations', registrationRoutes)
 app.use('/api/bookmarks', bookmarkRoutes)
 app.use('/api/notifications', notificationRoutes)
 app.use('/api/upload', uploadRoutes)
+if (process.env.NODE_ENV !== 'production') {
+  app.use('/api/test', testRoutes)
+}
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })

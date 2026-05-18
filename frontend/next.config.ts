@@ -1,11 +1,6 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  // Bundle all CSS into a single chunk — prevents layout.css 404s on client-side navigation
-  experimental: {
-    cssChunking: false,
-  },
-
   images: {
     remotePatterns: [
       { protocol: 'http', hostname: 'localhost' },

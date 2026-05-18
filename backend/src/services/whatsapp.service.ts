@@ -1,18 +1,22 @@
 /**
  * WhatsApp Notification Service
  *
- * Supports two providers via env config:
- *   WHATSAPP_PROVIDER=twilio  → Twilio WhatsApp API
- *   WHATSAPP_PROVIDER=meta    → Meta Cloud API (WhatsApp Business)
- *   (unset / anything else)   → disabled (no-op)
+ * Provider is selected via WHATSAPP_PROVIDER env var:
+ *   "twilio"  → Twilio WhatsApp API  (twilio npm package — already installed)
+ *   "meta"    → Meta Cloud API       (uses native fetch, no extra package)
+ *   unset     → notifications silently skipped (no error)
  *
- * Install the relevant SDK when enabling a provider:
- *   Twilio: npm install twilio
- *   Meta:   uses native fetch (no extra package)
+ * Quick start (Twilio sandbox):
+ *   1. Sign up at console.twilio.com
+ *   2. Messaging → Try it out → Send a WhatsApp message
+ *   3. From your phone: WhatsApp → +14155238886 → "join <keyword>"
+ *   4. Set env vars and restart the backend
  */
 
-export interface WhatsAppMessageData {
-  to: string;             // E.164 format e.g. +919876543210
+import twilio from "twilio";
+
+export interface WhatsAppMessage {
+  to: string;           // E.164 format: +919876543210
   type: "confirmation" | "reminder" | "cancellation" | "update";
   eventTitle: string;
   attendeeName: string;
@@ -21,126 +25,145 @@ export interface WhatsAppMessageData {
   eventUrl?: string;
 }
 
-// ─── Provider: Twilio ─────────────────────────────────────────────────────
-async function sendViaTwilio(data: WhatsAppMessageData): Promise<boolean> {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const fromNumber = process.env.TWILIO_WHATSAPP_FROM; // e.g. whatsapp:+14155238886
+// ─── Twilio ───────────────────────────────────────────────────────────────────
+async function sendViaTwilio(msg: WhatsAppMessage): Promise<boolean> {
+  const sid   = process.env.TWILIO_ACCOUNT_SID;
+  const token = process.env.TWILIO_AUTH_TOKEN;
+  const from  = process.env.TWILIO_WHATSAPP_FROM; // e.g. "whatsapp:+14155238886"
 
-  if (!accountSid || !authToken || !fromNumber) {
-    console.warn("Twilio credentials missing — WhatsApp skipped");
+  if (!sid || !token || !from) {
+    console.warn("[WhatsApp] Twilio env vars missing — message skipped");
     return false;
   }
 
+  // Normalise: ensure the number has whatsapp: prefix
+  const to = msg.to.startsWith("whatsapp:") ? msg.to : `whatsapp:${msg.to}`;
+
   try {
-    // Dynamic import to avoid hard dependency
-    const twilio = (await import("twilio" as any)).default;
-    const client = twilio(accountSid, authToken);
-
-    const body = buildMessageBody(data);
-
+    const client = twilio(sid, token);
     await client.messages.create({
-      from: fromNumber,
-      to: `whatsapp:${data.to}`,
-      body,
+      from,
+      to,
+      body: buildBody(msg),
     });
+    console.log(`[WhatsApp] ✅ Sent ${msg.type} to ${msg.to}`);
     return true;
   } catch (err: any) {
-    console.error("Twilio WhatsApp error:", err.message);
+    console.error("[WhatsApp] Twilio error:", err.message);
     return false;
   }
 }
 
-// ─── Provider: Meta Cloud API ─────────────────────────────────────────────
-async function sendViaMeta(data: WhatsAppMessageData): Promise<boolean> {
-  const token = process.env.META_WHATSAPP_TOKEN;
-  const phoneNumberId = process.env.META_PHONE_NUMBER_ID;
+// ─── Meta Cloud API ───────────────────────────────────────────────────────────
+async function sendViaMeta(msg: WhatsAppMessage): Promise<boolean> {
+  const token       = process.env.META_WHATSAPP_TOKEN;
+  const phoneNumId  = process.env.META_PHONE_NUMBER_ID;
 
-  if (!token || !phoneNumberId) {
-    console.warn("Meta WhatsApp credentials missing — skipped");
+  if (!token || !phoneNumId) {
+    console.warn("[WhatsApp] Meta env vars missing — message skipped");
     return false;
   }
 
+  // Strip whatsapp: prefix if present; Meta API expects plain E.164
+  const to = msg.to.replace(/^whatsapp:/, "");
+
   try {
-    const body = buildMessageBody(data);
     const res = await fetch(
-      `https://graph.facebook.com/v18.0/${phoneNumberId}/messages`,
+      `https://graph.facebook.com/v19.0/${phoneNumId}/messages`,
       {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
           messaging_product: "whatsapp",
-          to: data.to,
+          to,
           type: "text",
-          text: { body },
+          text: { body: buildBody(msg) },
         }),
       }
     );
-    return res.ok;
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      console.error("[WhatsApp] Meta API error:", JSON.stringify(err));
+      return false;
+    }
+
+    console.log(`[WhatsApp] ✅ Sent ${msg.type} via Meta to ${to}`);
+    return true;
   } catch (err: any) {
-    console.error("Meta WhatsApp error:", err.message);
+    console.error("[WhatsApp] Meta fetch error:", err.message);
     return false;
   }
 }
 
-// ─── Message body builder ─────────────────────────────────────────────────
-function buildMessageBody(data: WhatsAppMessageData): string {
-  const appName = "EventSphere";
-  switch (data.type) {
+// ─── Message body ─────────────────────────────────────────────────────────────
+function buildBody(msg: WhatsAppMessage): string {
+  const app = "EventSphere";
+  const lines: string[] = [];
+
+  switch (msg.type) {
     case "confirmation":
-      return [
+      lines.push(
         `✅ *Registration Confirmed!*`,
-        `Hi ${data.attendeeName},`,
-        `You're registered for *${data.eventTitle}*!`,
-        data.ticketCode ? `🎫 Ticket: *${data.ticketCode}*` : "",
-        data.eventDate ? `📅 ${data.eventDate}` : "",
-        data.eventUrl ? `🔗 ${data.eventUrl}` : "",
-        `\n_${appName}_`,
-      ].filter(Boolean).join("\n");
+        `Hi ${msg.attendeeName} 👋`,
+        `You're registered for *${msg.eventTitle}*!`,
+        ...(msg.ticketCode ? [`🎫 Ticket Code: *${msg.ticketCode}*`] : []),
+        ...(msg.eventDate  ? [`📅 ${msg.eventDate}`] : []),
+        ...(msg.eventUrl   ? [`🔗 ${msg.eventUrl}`] : []),
+        `\n_${app}_`
+      );
+      break;
 
     case "reminder":
-      return [
+      lines.push(
         `⏰ *Event Reminder*`,
-        `Hi ${data.attendeeName},`,
-        `*${data.eventTitle}* is coming up!`,
-        data.eventDate ? `📅 ${data.eventDate}` : "",
-        data.ticketCode ? `🎫 Ticket: *${data.ticketCode}*` : "",
-        data.eventUrl ? `🔗 ${data.eventUrl}` : "",
-        `\n_${appName}_`,
-      ].filter(Boolean).join("\n");
+        `Hi ${msg.attendeeName},`,
+        `*${msg.eventTitle}* is coming up — don't forget!`,
+        ...(msg.eventDate  ? [`📅 ${msg.eventDate}`] : []),
+        ...(msg.ticketCode ? [`🎫 Ticket: *${msg.ticketCode}*`] : []),
+        ...(msg.eventUrl   ? [`🔗 ${msg.eventUrl}`] : []),
+        `\n_${app}_`
+      );
+      break;
 
     case "cancellation":
-      return [
+      lines.push(
         `❌ *Registration Cancelled*`,
-        `Hi ${data.attendeeName},`,
-        `Your registration for *${data.eventTitle}* has been cancelled.`,
-        data.eventUrl ? `Re-register: ${data.eventUrl}` : "",
-        `\n_${appName}_`,
-      ].filter(Boolean).join("\n");
+        `Hi ${msg.attendeeName},`,
+        `Your registration for *${msg.eventTitle}* has been cancelled.`,
+        ...(msg.eventUrl ? [`Re-register anytime: ${msg.eventUrl}`] : []),
+        `\n_${app}_`
+      );
+      break;
 
     case "update":
-      return [
+      lines.push(
         `📢 *Event Update*`,
-        `Hi ${data.attendeeName},`,
-        `*${data.eventTitle}* has been updated.`,
-        data.eventUrl ? `View details: ${data.eventUrl}` : "",
-        `\n_${appName}_`,
-      ].filter(Boolean).join("\n");
+        `Hi ${msg.attendeeName},`,
+        `There's an update for *${msg.eventTitle}*.`,
+        ...(msg.eventUrl ? [`View details: ${msg.eventUrl}`] : []),
+        `\n_${app}_`
+      );
+      break;
   }
+
+  return lines.join("\n");
 }
 
-// ─── Public API ───────────────────────────────────────────────────────────
-export async function sendWhatsApp(data: WhatsAppMessageData): Promise<boolean> {
-  if (process.env.NODE_ENV === "test") return true;
-  if (!data.to) return false;
+// ─── Public send function ─────────────────────────────────────────────────────
+export async function sendWhatsApp(msg: WhatsAppMessage): Promise<boolean> {
+  if (process.env.NODE_ENV === "test") return true; // skip in tests
+  if (!msg.to) return false;
 
-  const provider = process.env.WHATSAPP_PROVIDER?.toLowerCase();
+  const provider = (process.env.WHATSAPP_PROVIDER ?? "").toLowerCase();
 
   switch (provider) {
-    case "twilio": return sendViaTwilio(data);
-    case "meta":   return sendViaMeta(data);
+    case "twilio": return sendViaTwilio(msg);
+    case "meta":   return sendViaMeta(msg);
     default:
-      // No provider configured — silently skip (not an error)
-      return false;
+      return false; // silently disabled
   }
 }

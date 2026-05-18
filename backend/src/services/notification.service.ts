@@ -96,9 +96,18 @@ export async function notifyRegistration(
 
   // 2. Email + WhatsApp → attendee (fire-and-forget)
   const profile = await getProfile(userId);
-  if (profile?.email) {
+
+  // Resolve the best available name/email/phone:
+  // attendeeDetails (from registration form) takes priority over profile fields
+  const details = (registration as any).attendeeDetails ?? {};
+  const attendeeEmail = details.answers?.registrationEmail || profile?.email || "";
+  const attendeeName = details.answers?.registrationName || profile?.fullName || attendeeEmail.split("@")[0] || "Attendee";
+  // Phone: form-submitted phone first, then stored profile phone
+  const attendeePhone = details.phone || profile?.phone || "";
+
+  if (attendeeEmail) {
     const emailData: RegistrationEmailData = {
-      attendeeName: profile.fullName ?? profile.email.split("@")[0],
+      attendeeName,
       eventTitle: event.title,
       eventDate: fmtDate(event.startDate),
       eventLocation: event.isOnline ? "Online" : (event.city ?? event.address ?? "TBD"),
@@ -111,29 +120,28 @@ export async function notifyRegistration(
     };
 
     sendEmail({
-      to: profile.email,
+      to: attendeeEmail,
       subject: `${registration.status === "confirmed" ? "✅ Confirmed" : "⏳ Waitlisted"}: ${event.title}`,
       html: buildRegistrationEmail(emailData),
     }).catch(() => {});
+  }
 
-    if (profile.phone) {
-      sendWhatsApp({
-        to: profile.phone,
-        type: "confirmation",
-        eventTitle: event.title,
-        attendeeName: profile.fullName ?? "",
-        ticketCode: registration.ticketCode,
-        eventDate: fmtDate(event.startDate),
-        eventUrl,
-      }).catch(() => {});
-    }
+  // WhatsApp — uses phone from registration form OR profile
+  if (attendeePhone) {
+    sendWhatsApp({
+      to: attendeePhone,
+      type: "confirmation",
+      eventTitle: event.title,
+      attendeeName,
+      ticketCode: registration.ticketCode,
+      eventDate: fmtDate(event.startDate),
+      eventUrl,
+    }).catch(() => {});
   }
 
   // 3. In-app + email → organizer
   const organizerUserId = String(organizer.userId);
   const organizerProfile = await getProfile(organizerUserId);
-  const attendeeName = profile?.fullName ?? profile?.email?.split("@")[0] ?? "Someone";
-  const attendeeEmail = profile?.email ?? "";
 
   await createInAppNotification(
     organizerUserId,
