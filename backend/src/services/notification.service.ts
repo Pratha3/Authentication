@@ -1,34 +1,23 @@
 /**
- * Central Notification Orchestrator
+ * Notification Orchestrator
  *
- * Handles all notification channels in one place:
- *  1. In-app (MongoDB + Socket.io push)
- *  2. Email (Nodemailer)
- *  3. WhatsApp (Twilio/Meta — optional)
- *
- * All methods are fire-and-forget safe — they swallow errors so that
- * a notification failure never breaks the main registration flow.
+ * Channels (fire-and-forget — never block the registration request):
+ *   1. In-app  — MongoDB record + Socket.io real-time push
+ *   2. WhatsApp — Twilio or Meta (WHATSAPP_PROVIDER env)
+ *   3. SMS      — Twilio (SMS_ENABLED=true env)
  */
 
 import { Notification } from "../models/Notification";
 import { Profile } from "../models/Profile";
 import { emitUserNotification } from "../sockets/io";
-import {
-  sendEmail,
-  buildRegistrationEmail,
-  buildOrganizerNotificationEmail,
-  buildCancellationEmail,
-  buildReminderEmail,
-  type RegistrationEmailData,
-} from "./email.service";
 import { sendWhatsApp } from "./whatsapp.service";
+import { sendSms } from "./sms.service";
 import type { IEvent } from "../models/Event";
 import type { IRegistration } from "../models/Registration";
 import type { IOrganizer } from "../models/Organizer";
 
 const CLIENT_URL = process.env.CLIENT_URL ?? "http://localhost:3000";
 
-// ─── Helper: format date for display ─────────────────────────────────────
 function fmtDate(d: Date | string): string {
   return new Date(d).toLocaleString("en-IN", {
     weekday: "short", day: "numeric", month: "short",
@@ -36,23 +25,18 @@ function fmtDate(d: Date | string): string {
   });
 }
 
-// ─── Helper: safe profile fetch ────────────────────────────────────────────
 async function getProfile(userId: string) {
-  try {
-    return await Profile.findOne({ userId }).lean();
-  } catch {
-    return null;
-  }
+  try { return await Profile.findOne({ userId }).lean(); }
+  catch { return null; }
 }
 
-// ─── In-app notification + real-time push ─────────────────────────────────
-async function createInAppNotification(
+async function pushInApp(
   userId: string,
   title: string,
   body: string,
   type: "registration" | "organizer" | "system" | "event_update" | "reminder",
   data?: Record<string, unknown>
-) {
+): Promise<void> {
   try {
     const notif = await Notification.create({ userId, title, body, type, data: data ?? null });
     emitUserNotification(userId, {
@@ -65,119 +49,100 @@ async function createInAppNotification(
       created_at: notif.createdAt,
     });
   } catch (err: any) {
-    console.error("In-app notification error:", err.message);
+    console.error("[Notification] in-app error:", err.message);
   }
 }
 
-// ─── REGISTRATION CONFIRMED ───────────────────────────────────────────────
+async function sendMobile(params: {
+  phone: string;
+  name: string;
+  type: "confirmation" | "reminder" | "cancellation" | "update";
+  eventTitle: string;
+  ticketCode?: string;
+  eventDate?: string;
+  eventUrl?: string;
+}): Promise<void> {
+  if (!params.phone) return;
+  const payload = {
+    to: params.phone,
+    type: params.type,
+    attendeeName: params.name,
+    eventTitle: params.eventTitle,
+    ticketCode: params.ticketCode,
+    eventDate: params.eventDate,
+    eventUrl: params.eventUrl,
+  };
+  await Promise.allSettled([sendWhatsApp(payload), sendSms(payload)]);
+}
+
 export async function notifyRegistration(
   registration: IRegistration,
   event: IEvent,
   organizer: IOrganizer
 ): Promise<void> {
   const userId = String(registration.userId);
-  const eventId = String(event._id);
   const eventUrl = `${CLIENT_URL}/events/${event.slug}`;
+  const dashUrl = `${CLIENT_URL}/organizer/dashboard`;
 
-  // 1. In-app notification → attendee
-  const title = registration.status === "confirmed"
-    ? `You're registered for ${event.title}!`
-    : `You're on the waitlist for ${event.title}`;
-  const body = registration.status === "confirmed"
-    ? `Ticket: ${registration.ticketCode}. See you there!`
-    : `We'll notify you if a spot opens up.`;
-
-  await createInAppNotification(userId, title, body, "registration", {
-    eventId,
-    eventSlug: event.slug,
-    ticketCode: registration.ticketCode,
-    status: registration.status,
-  });
-
-  // 2. Email + WhatsApp → attendee (fire-and-forget)
-  const profile = await getProfile(userId);
-
-  // Resolve the best available name/email/phone:
-  // attendeeDetails (from registration form) takes priority over profile fields
   const details = (registration as any).attendeeDetails ?? {};
-  const attendeeEmail = details.answers?.registrationEmail || profile?.email || "";
-  const attendeeName = details.answers?.registrationName || profile?.fullName || attendeeEmail.split("@")[0] || "Attendee";
-  // Phone: form-submitted phone first, then stored profile phone
+  const profile = await getProfile(userId);
+  const attendeeName = details.answers?.registrationName || profile?.fullName || "Attendee";
   const attendeePhone = details.phone || profile?.phone || "";
 
-  if (attendeeEmail) {
-    const emailData: RegistrationEmailData = {
-      attendeeName,
-      eventTitle: event.title,
-      eventDate: fmtDate(event.startDate),
-      eventLocation: event.isOnline ? "Online" : (event.city ?? event.address ?? "TBD"),
-      ticketCode: registration.ticketCode,
-      status: registration.status as "confirmed" | "waitlisted",
-      eventUrl,
-      organizerName: organizer.organizationName,
-      isOnline: event.isOnline,
-      onlineUrl: event.onlineUrl,
-    };
+  const isConfirmed = registration.status === "confirmed";
 
-    sendEmail({
-      to: attendeeEmail,
-      subject: `${registration.status === "confirmed" ? "✅ Confirmed" : "⏳ Waitlisted"}: ${event.title}`,
-      html: buildRegistrationEmail(emailData),
-    }).catch(() => {});
-  }
+  await pushInApp(
+    userId,
+    isConfirmed ? `You are registered for ${event.title}!` : `You are on the waitlist for ${event.title}`,
+    isConfirmed ? `Ticket: ${registration.ticketCode}. See you there!` : "We will notify you if a spot opens up.",
+    "registration",
+    { eventId: String(event._id), eventSlug: event.slug, ticketCode: registration.ticketCode, status: registration.status }
+  );
 
-  // WhatsApp — uses phone from registration form OR profile
   if (attendeePhone) {
-    sendWhatsApp({
-      to: attendeePhone,
+    sendMobile({
+      phone: attendeePhone,
+      name: attendeeName,
       type: "confirmation",
       eventTitle: event.title,
-      attendeeName,
       ticketCode: registration.ticketCode,
       eventDate: fmtDate(event.startDate),
       eventUrl,
     }).catch(() => {});
   }
 
-  // 3. In-app + email → organizer
-  const organizerUserId = String(organizer.userId);
-  const organizerProfile = await getProfile(organizerUserId);
+  const orgUserId = String(organizer.userId);
+  const orgProfile = await getProfile(orgUserId);
+  const orgPhone = orgProfile?.phone ?? "";
 
-  await createInAppNotification(
-    organizerUserId,
+  await pushInApp(
+    orgUserId,
     `New registration: ${event.title}`,
     `${attendeeName} just registered (${registration.status}).`,
     "organizer",
-    { eventId, eventSlug: event.slug, attendeeUserId: userId }
+    { eventId: String(event._id), eventSlug: event.slug, attendeeUserId: userId }
   );
 
-  if (organizerProfile?.email) {
-    sendEmail({
-      to: organizerProfile.email,
-      subject: `🔔 New registration for ${event.title}`,
-      html: buildOrganizerNotificationEmail({
-        organizerName: organizerProfile.fullName ?? organizerProfile.email.split("@")[0],
-        attendeeName,
-        attendeeEmail,
-        eventTitle: event.title,
-        totalAttendees: event.currentAttendees,
-        capacity: event.capacity,
-        dashboardUrl: `${CLIENT_URL}/organizer/dashboard`,
-        registrationStatus: registration.status as "confirmed" | "waitlisted",
-      }),
-    }).catch(() => {});
+  if (orgPhone) {
+    Promise.allSettled([
+      sendWhatsApp({ to: orgPhone, type: "update", attendeeName, eventTitle: event.title, eventUrl: dashUrl }),
+      sendSms({ to: orgPhone, type: "organizer_alert", attendeeName, eventTitle: event.title, attendeeCount: event.currentAttendees, eventUrl: dashUrl }),
+    ]).catch(() => {});
   }
 }
 
-// ─── REGISTRATION CANCELLED ───────────────────────────────────────────────
 export async function notifyCancellation(
   registration: IRegistration,
   event: IEvent
 ): Promise<void> {
   const userId = String(registration.userId);
   const eventUrl = `${CLIENT_URL}/events/${event.slug}`;
+  const details = (registration as any).attendeeDetails ?? {};
+  const profile = await getProfile(userId);
+  const name = details.answers?.registrationName || profile?.fullName || "Attendee";
+  const phone = details.phone || profile?.phone || "";
 
-  await createInAppNotification(
+  await pushInApp(
     userId,
     `Registration cancelled: ${event.title}`,
     "Your registration has been cancelled. Re-register anytime.",
@@ -185,82 +150,55 @@ export async function notifyCancellation(
     { eventId: String(event._id), eventSlug: event.slug }
   );
 
-  const profile = await getProfile(userId);
-  if (profile?.email) {
-    sendEmail({
-      to: profile.email,
-      subject: `Registration cancelled: ${event.title}`,
-      html: buildCancellationEmail({
-        attendeeName: profile.fullName ?? profile.email.split("@")[0],
-        eventTitle: event.title,
-        eventDate: fmtDate(event.startDate),
-        eventUrl,
-      }),
-    }).catch(() => {});
+  if (phone) {
+    sendMobile({ phone, name, type: "cancellation", eventTitle: event.title, eventUrl }).catch(() => {});
   }
 }
 
-// ─── EVENT STATUS UPDATE ──────────────────────────────────────────────────
 export async function notifyEventStatusUpdate(
   event: IEvent,
   registeredUserIds: string[]
 ): Promise<void> {
   const eventUrl = `${CLIENT_URL}/events/${event.slug}`;
-  const statusMessages: Record<string, { title: string; body: string }> = {
-    live: { title: `🔴 ${event.title} is LIVE!`, body: "The event has started — join now!" },
-    cancelled: { title: `❌ ${event.title} cancelled`, body: "Unfortunately the event has been cancelled." },
-    completed: { title: `✅ ${event.title} wrapped up`, body: "Thanks for attending!" },
-    postponed: { title: `📅 ${event.title} postponed`, body: "The event date has changed." },
+  const msgs: Record<string, { title: string; body: string }> = {
+    live:      { title: `${event.title} is LIVE!`,  body: "The event has started — join now!" },
+    cancelled: { title: `${event.title} cancelled`,  body: "The event has been cancelled." },
+    completed: { title: `${event.title} wrapped up`, body: "Thanks for attending!" },
   };
-
-  const msg = statusMessages[event.status];
+  const msg = msgs[event.status];
   if (!msg) return;
 
   await Promise.allSettled(
-    registeredUserIds.map((uid) =>
-      createInAppNotification(uid, msg.title, msg.body, "event_update", {
-        eventId: String(event._id),
-        eventSlug: event.slug,
-        status: event.status,
-        eventUrl,
-      })
-    )
+    registeredUserIds.map(async (uid) => {
+      await pushInApp(uid, msg.title, msg.body, "event_update", { eventId: String(event._id), eventSlug: event.slug, status: event.status });
+      const profile = await getProfile(uid);
+      const phone = profile?.phone ?? "";
+      if (phone) {
+        sendMobile({ phone, name: profile?.fullName ?? "Attendee", type: "update", eventTitle: event.title, eventUrl }).catch(() => {});
+      }
+    })
   );
 }
 
-// ─── EVENT REMINDER (called by a scheduler / cron) ────────────────────────
 export async function sendEventReminders(
   event: IEvent,
   registrations: Array<{ userId: string; ticketCode: string }>,
   hoursUntil: number
 ): Promise<void> {
   const eventUrl = `${CLIENT_URL}/events/${event.slug}`;
-  const eventDate = fmtDate(event.startDate);
-  const location = event.isOnline ? "Online" : (event.city ?? "TBD");
-
   await Promise.allSettled(
     registrations.map(async ({ userId, ticketCode }) => {
       const profile = await getProfile(userId);
-      if (!profile?.email) return;
-
-      const name = profile.fullName ?? profile.email.split("@")[0];
-
-      await createInAppNotification(
+      const phone = profile?.phone ?? "";
+      await pushInApp(
         userId,
-        `⏰ Reminder: ${event.title} ${hoursUntil <= 24 ? "tomorrow!" : `in ${Math.round(hoursUntil / 24)} days`}`,
-        `Don't forget your ticket: ${ticketCode}`,
+        `Reminder: ${event.title} ${hoursUntil <= 24 ? "is tomorrow!" : `in ${Math.round(hoursUntil / 24)} days`}`,
+        `Ticket: ${ticketCode}`,
         "reminder",
         { eventId: String(event._id), eventSlug: event.slug }
       );
-
-      sendEmail({
-        to: profile.email,
-        subject: `⏰ Reminder: ${event.title}`,
-        html: buildReminderEmail({ attendeeName: name, eventTitle: event.title, eventDate, eventLocation: location, ticketCode, eventUrl, hoursUntil }),
-      }).catch(() => {});
-
-      if (profile.phone) {
-        sendWhatsApp({ to: profile.phone, type: "reminder", eventTitle: event.title, attendeeName: name, ticketCode, eventDate, eventUrl }).catch(() => {});
+      if (phone) {
+        sendMobile({ phone, name: profile?.fullName ?? "Attendee", type: "reminder", eventTitle: event.title, ticketCode, eventDate: fmtDate(event.startDate), eventUrl }).catch(() => {});
       }
     })
   );

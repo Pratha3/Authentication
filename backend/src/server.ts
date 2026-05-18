@@ -22,6 +22,7 @@ import notificationRoutes from './routes/notificationRoutes'
 import uploadRoutes from './routes/uploadRoutes'
 import testRoutes from './routes/testRoutes'
 import { initSockets } from './sockets/io'
+import { initWhatsAppClient } from './services/whatsapp-client.service'
 
 dotenv.config()
 
@@ -72,6 +73,13 @@ const httpServer = createServer(app)
 initSockets(httpServer)
 
 connectDB()
+
+// Start Baileys WhatsApp client only when provider is "baileys"
+if ((process.env.WHATSAPP_PROVIDER ?? '').toLowerCase() === 'baileys') {
+  initWhatsAppClient().catch((err) =>
+    console.error('[WhatsApp] Failed to init Baileys client:', err.message)
+  )
+}
 
 const PORT = Number(process.env.PORT) || 5000
 httpServer.listen(PORT, () => {
