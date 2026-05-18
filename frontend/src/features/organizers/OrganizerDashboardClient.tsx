@@ -5,6 +5,7 @@ import { motion } from 'framer-motion'
 import { Plus, Users, CalendarDays, Eye, TrendingUp, Loader2, Pencil, Trash2, MoreHorizontal } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/store/auth.store'
+import { useEventsStore } from '@/store/events.store'
 import { fetchOrganizerProfile } from '@/services/api/profiles.service'
 import { fetchOrganizerEvents, updateEvent, deleteEvent } from '@/services/api/events.service'
 import { fetchEventRegistrations } from '@/services/api/registrations.service'
@@ -31,6 +32,7 @@ const StatCard = ({ label, value, icon: Icon, color }: { label: string; value: s
 
 export function OrganizerDashboardClient() {
   const { user, profile } = useAuthStore()
+  const { events: cachedEvents } = useEventsStore()
   const [organizer, setOrganizer] = useState<Organizer | null>(null)
   const [events, setEvents] = useState<Event[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -38,15 +40,30 @@ export function OrganizerDashboardClient() {
 
   useEffect(() => {
     if (!user) return
-    fetchOrganizerProfile(user.id).then(async ({ data: org }) => {
-      setOrganizer(org)
-      if (org) {
-        const { data: evts } = await fetchOrganizerEvents(org.id)
+    setIsLoading(true)
+    fetchOrganizerProfile(user.id)
+      .then(async ({ data: org, error }) => {
+        if (error || !org) {
+          toast.error('Could not load organizer profile. Please set up your profile first.')
+          setIsLoading(false)
+          return
+        }
+        setOrganizer(org)
+        const { data: evts, error: evtErr } = await fetchOrganizerEvents(org.id)
+        if (evtErr) toast.error(`Failed to load events: ${evtErr}`)
         setEvents(evts ?? [])
-      }
-      setIsLoading(false)
-    })
+        setIsLoading(false)
+      })
+      .catch((err) => {
+        toast.error(err instanceof Error ? err.message : 'Failed to load dashboard')
+        setIsLoading(false)
+      })
   }, [user])
+
+  useEffect(() => {
+    if (!organizer || cachedEvents.length === 0) return
+    setEvents(cachedEvents.filter((event) => event.organizer_id === organizer.id))
+  }, [cachedEvents, organizer])
 
   const handleStatusChange = async (id: string, status: EventStatus) => {
     const { error } = await updateEvent(id, { status })

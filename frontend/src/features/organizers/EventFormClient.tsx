@@ -8,6 +8,7 @@ import { Loader2, Upload } from 'lucide-react'
 import Image from 'next/image'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/store/auth.store'
+import { useEventsStore } from '@/store/events.store'
 import { fetchOrganizerProfile } from '@/services/api/profiles.service'
 import { createEvent, updateEvent, type EventPayload } from '@/services/api/events.service'
 import { uploadApi } from '@/lib/api'
@@ -50,6 +51,7 @@ interface Props {
 
 export function EventFormClient({ mode, existing }: Props) {
   const { user } = useAuthStore()
+  const { upsertEvent } = useEventsStore()
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [bannerFile, setBannerFile] = useState<File | null>(null)
@@ -148,6 +150,7 @@ export function EventFormClient({ mode, existing }: Props) {
         return
       }
 
+      if (result.data) upsertEvent(result.data)
       toast.success(mode === 'create' ? 'Event created successfully!' : 'Event updated successfully!')
       router.push(ROUTES.ORGANIZER.DASHBOARD)
     } catch (err: unknown) {

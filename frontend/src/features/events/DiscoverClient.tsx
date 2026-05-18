@@ -10,6 +10,7 @@ import { EventCardSkeleton } from '@/components/events/EventCardSkeleton'
 import { EventFilters } from '@/components/events/EventFilters'
 import { SearchBar } from '@/components/shared/SearchBar'
 import { Button } from '@/components/ui/button'
+import { sampleEvents } from '@/constants/sampleEvents'
 
 export function DiscoverClient() {
   const { events, isLoading, hasMore, loadEvents, loadMore } = useEvents()
@@ -17,13 +18,24 @@ export function DiscoverClient() {
   const { detectLocation, isDetecting, userLocation } = useLocation()
   const loaderRef = useRef<HTMLDivElement>(null)
   const isFirstLoad = useRef(true)
+  const hasActiveFilters = Boolean(
+    filters.category?.length ||
+    filters.dateFrom ||
+    filters.dateTo ||
+    filters.isFree !== undefined ||
+    filters.latitude ||
+    filters.longitude ||
+    filters.distance ||
+    filters.search
+  )
+  const displayEvents = events.length === 0 && !isLoading && !hasActiveFilters ? sampleEvents : events
 
   // Initial load + reload on filter changes
   useEffect(() => {
     loadEvents(true)
     isFirstLoad.current = false
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.category, filters.dateFrom, filters.dateTo, filters.isFree, filters.distance, filters.sortBy, filters.search])
+  }, [filters.category, filters.dateFrom, filters.dateTo, filters.isFree, filters.distance, filters.latitude, filters.longitude, filters.sortBy, filters.search])
 
   // Infinite scroll
   const handleObserver = useCallback(
@@ -74,7 +86,7 @@ export function DiscoverClient() {
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {Array.from({ length: 8 }).map((_, i) => <EventCardSkeleton key={i} />)}
         </div>
-      ) : events.length === 0 ? (
+      ) : displayEvents.length === 0 ? (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -86,7 +98,7 @@ export function DiscoverClient() {
         </motion.div>
       ) : (
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {events.map((event, i) => (
+          {displayEvents.map((event, i) => (
             <EventCard key={event.id} event={event} index={i} />
           ))}
         </div>

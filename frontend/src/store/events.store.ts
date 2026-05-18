@@ -14,6 +14,7 @@ interface EventsState {
   mapView: boolean
 
   setEvents: (events: Event[]) => void
+  upsertEvent: (event: Event) => void
   appendEvents: (events: Event[]) => void
   setFeaturedEvents: (events: Event[]) => void
   setSelectedEvent: (event: Event | null) => void
@@ -48,7 +49,28 @@ export const useEventsStore = create<EventsState>()((set) => ({
   mapView: false,
 
   setEvents: (events) => set({ events }),
-  appendEvents: (events) => set((state) => ({ events: [...state.events, ...events] })),
+  upsertEvent: (event) =>
+    set((state) => {
+      const exists = state.events.some((item) => item.id === event.id)
+      const shouldShowOnHome = ['upcoming', 'live'].includes(event.status)
+      const featuredEvents = shouldShowOnHome
+        ? [event, ...state.featuredEvents.filter((item) => item.id !== event.id)].slice(0, 6)
+        : state.featuredEvents.filter((item) => item.id !== event.id)
+
+      return {
+        events: exists
+          ? state.events.map((item) => (item.id === event.id ? event : item))
+          : [event, ...state.events],
+        featuredEvents,
+      }
+    }),
+  appendEvents: (events) =>
+    set((state) => ({
+      events: [
+        ...state.events,
+        ...events.filter((event) => !state.events.some((item) => item.id === event.id)),
+      ],
+    })),
   setFeaturedEvents: (featuredEvents) => set({ featuredEvents }),
   setSelectedEvent: (selectedEvent) => set({ selectedEvent }),
 

@@ -52,16 +52,36 @@ export function EventDetailClient({ slug }: Props) {
   const { bookmarked, toggleBookmark } = useBookmark(event?.id ?? '')
 
   const handleRegister = async () => {
-    if (!user || !event) { toast.error('Sign in to register'); return }
+    if (!user || !event) {
+      toast.error('Please sign in to register for events', {
+        action: { label: 'Sign in', onClick: () => window.location.href = '/login' },
+      })
+      return
+    }
     setIsRegistering(true)
     if (event.is_registered) {
       const { error } = await cancelRegistration(event.id, user.id)
       if (error) toast.error(error)
-      else { setEvent(prev => prev ? { ...prev, is_registered: false } : prev); toast.success('Registration cancelled') }
+      else {
+        setEvent(prev => prev ? { ...prev, is_registered: false, current_attendees: Math.max(0, (prev.current_attendees ?? 1) - 1) } : prev)
+        toast.success('Registration cancelled successfully')
+      }
     } else {
-      const { error } = await registerForEvent(event.id, user.id)
+      const { data: reg, error } = await registerForEvent(event.id, user.id)
       if (error) toast.error(error)
-      else { setEvent(prev => prev ? { ...prev, is_registered: true } : prev); toast.success('Registered successfully! 🎉') }
+      else {
+        const status = (reg as any)?.status
+        setEvent(prev => prev ? {
+          ...prev,
+          is_registered: true,
+          current_attendees: status === 'confirmed' ? (prev.current_attendees ?? 0) + 1 : prev.current_attendees,
+        } : prev)
+        if (status === 'waitlisted') {
+          toast.info("You're on the waitlist!", { description: "You'll be notified if a spot opens up." })
+        } else {
+          toast.success('Registered successfully! 🎉', { description: `Your ticket code: ${(reg as any)?.ticketCode ?? ''}` })
+        }
+      }
     }
     setIsRegistering(false)
   }

@@ -10,7 +10,7 @@ import { StartOrganizingButton } from '@/components/shared/StartOrganizingButton
 import { ROUTES } from '@/constants'
 
 export const metadata: Metadata = {
-  title: 'EventSphere — Discover Local Events Near You',
+  title: 'EventSphere - Discover Local Events Near You',
 }
 
 export default function LandingPage() {
@@ -18,18 +18,17 @@ export default function LandingPage() {
     <>
       <Navbar />
       <main className="flex flex-col">
-        {/* Hero */}
         <section className="relative overflow-hidden section-gradient">
           <div className="container py-24 md:py-36 text-center">
             <Badge variant="outline" className="mb-6 border-primary/30 text-primary bg-primary/10 inline-flex">
               <Zap className="mr-1 h-3 w-3" /> Live events near you
             </Badge>
             <h1 className="text-4xl font-bold tracking-tight sm:text-6xl md:text-7xl text-balance mb-6">
-              Discover Events That
-              <span className="gradient-text">Move You</span>
+              <span className="block">Discover Events That</span>
+              <span className="gradient-text block">Move You</span>
             </h1>
             <p className="mx-auto max-w-2xl text-lg text-muted-foreground mb-8 text-balance">
-              From marathons to meetups, café gatherings to community festivals — find and join experiences that matter to you, happening right in your neighborhood.
+              From marathons to meetups, cafe gatherings to community festivals - find and join experiences that matter to you, happening right in your neighborhood.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Button asChild size="lg" className="glow">
@@ -40,11 +39,10 @@ export default function LandingPage() {
                 </Link>
               </Button>
               <Button asChild size="lg" variant="outline">
-                <Link href={ROUTES.SIGNUP}>Create Account — It&apos;s Free</Link>
+                <Link href={ROUTES.SIGNUP}>Create Account - It&apos;s Free</Link>
               </Button>
             </div>
 
-            {/* Stats */}
             <div className="mt-16 grid grid-cols-3 gap-4 max-w-lg mx-auto">
               {[
                 { icon: Zap, value: '10K+', label: 'Events Listed' },
@@ -61,7 +59,6 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Featured Events */}
         <section className="container py-16">
           <div className="flex items-center justify-between mb-8">
             <div>
@@ -75,7 +72,6 @@ export default function LandingPage() {
           <FeaturedEventsSection />
         </section>
 
-        {/* Categories */}
         <section className="container py-8 pb-16">
           <div className="mb-8">
             <h2 className="text-2xl font-bold">Browse by Category</h2>
@@ -84,7 +80,6 @@ export default function LandingPage() {
           <CategoryGrid />
         </section>
 
-        {/* CTA */}
         <section className="border-t border-border/40 bg-card/30">
           <div className="container py-16 text-center">
             <Star className="h-10 w-10 text-primary mx-auto mb-4" />

@@ -55,10 +55,12 @@ export function normalizeProfile(raw: any) {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function normalizeEvent(raw: any) {
   if (!raw) return null
+  const organizerId = raw.organizerId ?? raw.organizer_id
+  const venueId = raw.venueId ?? raw.venue_id
   return {
     id: String(raw._id ?? raw.id ?? ''),
-    organizer_id: String(raw.organizerId ?? raw.organizer_id ?? ''),
-    venue_id: raw.venueId ? String(raw.venueId) : null,
+    organizer_id: organizerId && typeof organizerId === 'object' ? String(organizerId._id ?? organizerId.id ?? '') : String(organizerId ?? ''),
+    venue_id: venueId ? (typeof venueId === 'object' ? String(venueId._id ?? venueId.id ?? '') : String(venueId)) : null,
     title: raw.title ?? '',
     slug: raw.slug ?? '',
     description: raw.description ?? '',
