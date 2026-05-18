@@ -4,13 +4,13 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { signupSchema, type SignupInput } from './schemas'
 import { authApi, setToken } from '@/lib/api'
 import { useAuthStore } from '@/store/auth.store'
-import { fetchProfile } from '@/services/api/profiles.service'
+import { createOrganizerProfile, fetchProfile } from '@/services/api/profiles.service'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -20,6 +20,8 @@ export function SignupForm() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const next = searchParams?.get('next')
   const { setUser, setToken: storeToken, setProfile } = useAuthStore()
 
   const { register, handleSubmit, formState: { errors } } = useForm<SignupInput>({
@@ -34,9 +36,26 @@ export function SignupForm() {
       storeToken(token)
       setUser(user)
       const { data: profile } = await fetchProfile(user.id)
-      setProfile(profile)
+      let nextProfile = profile
+
+      if (next === ROUTES.ORGANIZER.CREATE) {
+        await createOrganizerProfile({
+          user_id: user.id,
+          organization_name: values.full_name,
+          description: null,
+          logo_url: null,
+          website: null,
+          social_links: null,
+          verification_status: 'pending',
+          verified_at: null,
+        })
+        const refreshed = await fetchProfile(user.id)
+        nextProfile = refreshed.data
+      }
+
+      setProfile(nextProfile)
       toast.success('Account created! Welcome to EventSphere.')
-      router.push(ROUTES.ONBOARDING)
+      router.push(next ?? ROUTES.DISCOVER)
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Signup failed')
     } finally {

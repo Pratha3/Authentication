@@ -5,7 +5,9 @@ import * as ToastPrimitives from "@radix-ui/react-toast";
 import { cva, type VariantProps } from "class-variance-authority";
 import { X, CheckCircle2, AlertCircle, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { type Toast, type ToastType } from "@/hooks/useToast";
+
+export type ToastType = "success" | "error" | "info";
+export interface Toast { id: number; message: string; type: ToastType }
 
 const ToastProvider = ToastPrimitives.Provider;
 
@@ -96,7 +98,6 @@ const ToastDescription = React.forwardRef<
 ));
 ToastDescription.displayName = ToastPrimitives.Description.displayName;
 
-// ─── Icon map ─────────────────────────────────────────────────────────────────
 const icons: Record<ToastType, React.ReactNode> = {
   success: <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0 mt-0.5" />,
   error: <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />,
@@ -109,7 +110,6 @@ const variantMap: Record<ToastType, "success" | "error" | "info"> = {
   info: "info",
 };
 
-// ─── Public container used in providers.tsx ───────────────────────────────────
 interface ToastContainerProps {
   toasts: Toast[];
   onRemove: (id: number) => void;

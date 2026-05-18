@@ -2,6 +2,29 @@ import { eventsApi } from '@/lib/api'
 import type { Event, EventFilters, ApiResponse, PaginatedResponse } from '@/types'
 import { ITEMS_PER_PAGE } from '@/constants'
 
+export type EventPayload = {
+  title: string
+  description: string
+  shortDescription: string | null
+  category: string
+  startDate: string
+  endDate: string
+  city: string | null
+  address: string | null
+  isOnline: boolean
+  onlineUrl: string | null
+  isFree: boolean
+  price: number
+  capacity: number | null
+  tags: string[]
+  bannerUrl: string | null
+  slug: string
+  status: Event['status']
+  isFeatured: boolean
+  currency: string
+  timezone: string
+}
+
 export async function fetchEvents(
   filters: EventFilters = {},
   userId?: string
@@ -71,7 +94,7 @@ export async function fetchNearbyEvents(
 }
 
 export async function createEvent(
-  payload: Omit<Event, 'id' | 'created_at' | 'updated_at' | 'current_attendees' | 'view_count'>
+  payload: EventPayload
 ): Promise<ApiResponse<Event>> {
   try {
     const res = await eventsApi.create(payload)
@@ -81,7 +104,7 @@ export async function createEvent(
   }
 }
 
-export async function updateEvent(id: string, payload: Partial<Event>): Promise<ApiResponse<Event>> {
+export async function updateEvent(id: string, payload: Partial<EventPayload>): Promise<ApiResponse<Event>> {
   try {
     const res = await eventsApi.update(id, payload)
     return { data: res.data as Event, error: null }

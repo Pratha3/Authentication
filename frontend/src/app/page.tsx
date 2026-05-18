@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Navbar } from '@/components/layout/Navbar'
 import { FeaturedEventsSection } from '@/components/events/FeaturedEventsSection'
 import { CategoryGrid } from '@/components/events/CategoryGrid'
+import { StartOrganizingButton } from '@/components/shared/StartOrganizingButton'
 import { ROUTES } from '@/constants'
 
 export const metadata: Metadata = {
@@ -91,9 +92,7 @@ export default function LandingPage() {
             <p className="text-muted-foreground max-w-md mx-auto mb-6">
               Become an organizer and bring your community together. Create events, manage attendees, and grow your audience.
             </p>
-            <Button asChild size="lg">
-              <Link href={ROUTES.SIGNUP}>Start Organizing</Link>
-            </Button>
+            <StartOrganizingButton />
           </div>
         </section>
       </main>

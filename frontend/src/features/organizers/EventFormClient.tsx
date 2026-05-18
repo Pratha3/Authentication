@@ -9,7 +9,7 @@ import Image from 'next/image'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/store/auth.store'
 import { fetchOrganizerProfile } from '@/services/api/profiles.service'
-import { createEvent, updateEvent } from '@/services/api/events.service'
+import { createEvent, updateEvent, type EventPayload } from '@/services/api/events.service'
 import { uploadApi } from '@/lib/api'
 import { AuthGuard } from '@/components/shared/AuthGuard'
 import { Button } from '@/components/ui/button'
@@ -114,8 +114,7 @@ export function EventFormClient({ mode, existing }: Props) {
         bannerUrl = url
       }
 
-      // Build camelCase payload matching MongoDB model field names
-      const payload = {
+      const payload: EventPayload = {
         title: values.title,
         description: values.description,
         shortDescription: values.short_description || null,
@@ -141,8 +140,8 @@ export function EventFormClient({ mode, existing }: Props) {
       }
 
       const result = mode === 'create'
-        ? await createEvent(payload as Parameters<typeof createEvent>[0])
-        : await updateEvent(existing!.id, payload as Partial<Event>)
+        ? await createEvent(payload)
+        : await updateEvent(existing!.id, payload)
 
       if (result.error) {
         toast.error(result.error)
@@ -177,7 +176,7 @@ export function EventFormClient({ mode, existing }: Props) {
                 <div className="text-center">
                   <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
                   <p className="text-sm text-muted-foreground">Click to upload banner image</p>
-                  <p className="text-xs text-muted-foreground/60">PNG, JPG, WEBP — max 5MB</p>
+                  <p className="text-xs text-muted-foreground/60">PNG, JPG, WEBP - max 5MB</p>
                 </div>
               )}
               <input type="file" className="sr-only" accept="image/*" onChange={handleBannerChange} />

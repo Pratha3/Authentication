@@ -278,7 +278,23 @@ export const profilesApi = {
     }
   },
   createOrganizer: async (payload: unknown) => {
-    const raw = await request<{ data: unknown }>('/profiles/organizer', { method: 'POST', body: JSON.stringify(payload) })
+    const p = payload as {
+      organization_name?: string
+      description?: string | null
+      logo_url?: string | null
+      website?: string | null
+      social_links?: Record<string, string> | null
+    }
+    const raw = await request<{ data: unknown }>('/profiles/organizer', {
+      method: 'POST',
+      body: JSON.stringify({
+        organizationName: p.organization_name,
+        description: p.description,
+        logoUrl: p.logo_url,
+        website: p.website,
+        socialLinks: p.social_links,
+      }),
+    })
     return { data: raw.data }
   },
   allUsers: async (page = 1, pageSize = 20) => {

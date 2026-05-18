@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { Suspense } from 'react'
 import { Zap } from 'lucide-react'
 import { SignupForm } from '@/features/auth/SignupForm'
 
@@ -14,7 +15,9 @@ export default function SignupPage() {
         </div>
         EventSphere
       </Link>
-      <SignupForm />
+      <Suspense fallback={null}>
+        <SignupForm />
+      </Suspense>
     </div>
   )
 }
