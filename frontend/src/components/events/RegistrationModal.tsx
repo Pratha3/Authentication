@@ -21,7 +21,10 @@ import type { Event } from '@/types'
 // ── Validation ───────────────────────────────────────────────────────────────
 const attendeeSchema = z.object({
   email: z.string().email('Enter a valid email').min(1, 'Email is required'),
-  phone: z.string().min(7, 'Enter a valid phone number'),
+  phone: z.string()
+    .refine(val => !val || val.replace(/\D/g, '').length >= 7, 'Enter a valid phone number')
+    .optional()
+    .or(z.literal('')),
   name: z.string().min(2, 'Name must be at least 2 characters'),
   dietaryRequirements: z.string().max(200).optional(),
   specialRequests: z.string().max(500).optional(),
@@ -345,8 +348,8 @@ export function RegistrationModal({ event, open, onClose, onSuccess }: Registrat
                       </h2>
                       <p className="text-sm text-muted-foreground mt-1">
                         {regStatus === 'confirmed'
-                          ? 'Confirmation email sent. Check your inbox!'
-                          : "We'll email you when a spot opens up."}
+                          ? 'Confirmation sent to your email & WhatsApp.'
+                          : "We'll notify you via email & WhatsApp when a spot opens up."}
                       </p>
                     </div>
 

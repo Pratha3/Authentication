@@ -5,12 +5,12 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Eye, EyeOff, Loader2 } from 'lucide-react'
+import { Eye, EyeOff, Loader2, Phone } from 'lucide-react'
 import { toast } from 'sonner'
 import { signupSchema, type SignupInput } from './schemas'
 import { authApi, setToken } from '@/lib/api'
 import { useAuthStore } from '@/store/auth.store'
-import { createOrganizerProfile, fetchProfile } from '@/services/api/profiles.service'
+import { createOrganizerProfile, fetchProfile, updateProfile } from '@/services/api/profiles.service'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -35,8 +35,15 @@ export function SignupForm() {
       setToken(token)
       storeToken(token)
       setUser(user)
+
       const { data: profile } = await fetchProfile(user.id)
       let nextProfile = profile
+
+      // Save phone to profile if provided
+      if (values.phone) {
+        const { data: updated } = await updateProfile(user.id, { phone: values.phone } as any)
+        if (updated) nextProfile = updated
+      }
 
       if (next === ROUTES.ORGANIZER.CREATE) {
         await createOrganizerProfile({
@@ -81,6 +88,23 @@ export function SignupForm() {
           <Label htmlFor="email">Email</Label>
           <Input id="email" type="email" placeholder="you@example.com" autoComplete="email" {...register('email')} />
           {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="phone" className="flex items-center gap-1.5">
+            <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+            Phone Number
+            <span className="text-xs text-muted-foreground font-normal">(optional)</span>
+          </Label>
+          <Input
+            id="phone"
+            type="tel"
+            placeholder="+91 98765 43210"
+            autoComplete="tel"
+            {...register('phone')}
+          />
+          {errors.phone && <p className="text-sm text-destructive">{errors.phone.message}</p>}
+          <p className="text-xs text-muted-foreground">For WhatsApp event reminders & confirmations</p>
         </div>
 
         <div className="space-y-2">

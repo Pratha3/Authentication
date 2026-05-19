@@ -5,9 +5,13 @@ import { Bell, CheckCheck, Dot } from 'lucide-react'
 import Link from 'next/link'
 import { useNotificationsStore } from '@/store/notifications.store'
 import { useAuthStore } from '@/store/auth.store'
-import { fetchNotifications, markNotificationRead, markAllNotificationsRead } from '@/services/api/notifications.service'
+import { markNotificationRead, markAllNotificationsRead } from '@/services/api/notifications.service'
 import { cn, formatRelativeTime } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+
+// useRealtimeNotifications (in providers.tsx) already loads notifications into the
+// store on login and subscribes to real-time pushes. This component just reads from
+// that store — no duplicate fetch needed.
 
 const TYPE_DOT: Record<string, string> = {
   registration: 'bg-green-500',
@@ -21,26 +25,7 @@ export function NotificationDropdown() {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const { user } = useAuthStore()
-  const { notifications, unreadCount, setNotifications, markAsRead, markAllAsRead } = useNotificationsStore()
-
-  // Load on first open — only fetch once per session
-  const fetchedRef = useRef(false)
-  useEffect(() => {
-    if (!open || !user || fetchedRef.current) return
-    fetchedRef.current = true
-    fetchNotifications(user.id).then(({ data }) => {
-      if (!data) return
-      // Normalise MongoDB fields (_id → id, isRead → is_read, createdAt → created_at)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const normalised = data.map((n: any) => ({
-        ...n,
-        id: n._id ?? n.id ?? '',
-        is_read: n.isRead ?? n.is_read ?? false,
-        created_at: n.createdAt ?? n.created_at ?? '',
-      }))
-      setNotifications(normalised)
-    })
-  }, [open, user, setNotifications])
+  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotificationsStore()
 
   // Click-outside close
   useEffect(() => {

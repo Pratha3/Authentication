@@ -23,7 +23,10 @@ import type { EventCategory } from '@/types'
 const profileSchema = z.object({
   full_name: z.string().min(2).max(50),
   bio: z.string().max(300).optional(),
-  phone: z.string().optional(),
+  phone: z.string()
+    .refine(val => !val || val.replace(/\D/g, '').length >= 7, 'Enter a valid phone number')
+    .optional()
+    .or(z.literal('')),
   location: z.string().optional(),
 })
 type ProfileInput = z.infer<typeof profileSchema>
@@ -111,6 +114,8 @@ export function ProfileClient() {
               <div className="space-y-2">
                 <Label>Phone</Label>
                 <Input type="tel" placeholder="+91 98765 43210" {...register('phone')} />
+                {errors.phone && <p className="text-xs text-destructive">{errors.phone.message}</p>}
+                <p className="text-xs text-muted-foreground">Used for WhatsApp notifications</p>
               </div>
               <div className="space-y-2">
                 <Label>City / Location</Label>
