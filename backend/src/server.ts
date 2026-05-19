@@ -13,6 +13,7 @@ import './models/Event'
 import './models/Registration'
 import './models/Bookmark'
 import './models/Notification'
+import './models/NotificationLog'
 import authRoutes from './routes/authRoutes'
 import eventRoutes from './routes/eventRoutes'
 import profileRoutes from './routes/profileRoutes'
@@ -22,7 +23,8 @@ import notificationRoutes from './routes/notificationRoutes'
 import uploadRoutes from './routes/uploadRoutes'
 import testRoutes from './routes/testRoutes'
 import { initSockets } from './sockets/io'
-import { initWhatsAppClient } from './services/whatsapp-client.service'
+import { startQueueWorker } from './services/notification-queue.service'
+import { startReminderJob } from './jobs/reminder.job'
 
 dotenv.config()
 
@@ -72,19 +74,14 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 const httpServer = createServer(app)
 initSockets(httpServer)
 
-connectDB()
-
-// Start Baileys WhatsApp client only when provider is "baileys"
-if ((process.env.WHATSAPP_PROVIDER ?? '').toLowerCase() === 'baileys') {
-  initWhatsAppClient().catch((err) =>
-    console.error('[WhatsApp] Failed to init Baileys client:', err.message)
-  )
-}
+connectDB().then(() => {
+  startQueueWorker()
+  startReminderJob()
+})
 
 const PORT = Number(process.env.PORT) || 5000
 httpServer.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`)
 })
 
-// Export for integration tests
 export { app }

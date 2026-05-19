@@ -1,17 +1,18 @@
 /**
  * Test routes — dev-only, mounted at /api/test
- * Use these to verify WhatsApp and SMS config without running a full registration.
- *
- * All routes require a valid JWT (protect middleware).
+ * Guarded by NODE_ENV !== "production" + JWT.
+ * Rate-limited to prevent accidental spam.
  */
 import { Router, Request, Response } from "express";
+import rateLimit from "express-rate-limit";
 import { protect } from "../middleware/auth";
 import { sendWhatsApp } from "../services/whatsapp.service";
 import { sendSms } from "../services/sms.service";
-import { isWhatsAppReady } from "../services/whatsapp-client.service";
+import { getQueueStats, processQueue } from "../services/notification-queue.service";
 
 const router = Router();
 
+// Block in production regardless of env-guard at mount point
 const guard = (_req: Request, res: Response, next: () => void) => {
   if (process.env.NODE_ENV === "production") {
     res.status(403).json({ message: "Test routes disabled in production." });
@@ -20,11 +21,23 @@ const guard = (_req: Request, res: Response, next: () => void) => {
   next();
 };
 
+// Max 10 test sends per 15 minutes per IP to avoid accidental spam
+const testLimiter = rateLimit({
+  windowMs: 15 * 60 * 1_000,
+  max: 10,
+  message: { message: "Too many test requests — try again in 15 minutes." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // ── POST /api/test/whatsapp ──────────────────────────────────────────────────
 // Body: { "to": "+919876543210" }
-router.post("/whatsapp", guard, protect, async (req: Request, res: Response) => {
+router.post("/whatsapp", guard, testLimiter, protect, async (req: Request, res: Response) => {
   const { to } = req.body;
-  if (!to) { res.status(400).json({ message: '"to" phone number is required (E.164: +91XXXXXXXXXX)' }); return; }
+  if (!to) {
+    res.status(400).json({ message: '"to" phone number is required (E.164: +91XXXXXXXXXX)' });
+    return;
+  }
 
   const sent = await sendWhatsApp({
     to,
@@ -39,19 +52,22 @@ router.post("/whatsapp", guard, protect, async (req: Request, res: Response) => 
   res.json({
     sent,
     channel: "whatsapp",
-    provider: process.env.WHATSAPP_PROVIDER || "disabled",
+    provider: "meta",
     to,
     message: sent
-      ? `WhatsApp sent to ${to}`
-      : "WhatsApp not sent — check WHATSAPP_PROVIDER, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_FROM in .env",
+      ? `✅ WhatsApp sent to ${to}`
+      : "❌ Not sent — check META_WHATSAPP_TOKEN and META_PHONE_NUMBER_ID in .env",
   });
 });
 
 // ── POST /api/test/sms ───────────────────────────────────────────────────────
 // Body: { "to": "+919876543210" }
-router.post("/sms", guard, protect, async (req: Request, res: Response) => {
+router.post("/sms", guard, testLimiter, protect, async (req: Request, res: Response) => {
   const { to } = req.body;
-  if (!to) { res.status(400).json({ message: '"to" phone number is required (E.164: +91XXXXXXXXXX)' }); return; }
+  if (!to) {
+    res.status(400).json({ message: '"to" phone number is required (E.164: +91XXXXXXXXXX)' });
+    return;
+  }
 
   const sent = await sendSms({
     to,
@@ -67,19 +83,22 @@ router.post("/sms", guard, protect, async (req: Request, res: Response) => {
     sent,
     channel: "sms",
     smsEnabled: process.env.SMS_ENABLED === "true",
+    provider: process.env.SMS_PROVIDER || "not set",
     to,
     message: sent
-      ? `SMS sent to ${to}`
-      : "SMS not sent — check SMS_ENABLED=true, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_SMS_FROM in .env",
+      ? `✅ SMS sent to ${to}`
+      : "❌ Not sent — check SMS_ENABLED=true and SMS_PROVIDER in .env",
   });
 });
 
 // ── POST /api/test/both ──────────────────────────────────────────────────────
-// Fires WhatsApp + SMS simultaneously to the same number
-// Body: { "to": "+919876543210" }
-router.post("/both", guard, protect, async (req: Request, res: Response) => {
+// Fires WhatsApp + SMS simultaneously — Body: { "to": "+919876543210" }
+router.post("/both", guard, testLimiter, protect, async (req: Request, res: Response) => {
   const { to } = req.body;
-  if (!to) { res.status(400).json({ message: '"to" phone number is required' }); return; }
+  if (!to) {
+    res.status(400).json({ message: '"to" phone number is required' });
+    return;
+  }
 
   const payload = {
     to,
@@ -100,39 +119,30 @@ router.post("/both", guard, protect, async (req: Request, res: Response) => {
     to,
     whatsapp: {
       sent: waResult.status === "fulfilled" && waResult.value,
-      provider: process.env.WHATSAPP_PROVIDER || "disabled",
+      provider: "meta",
     },
     sms: {
       sent: smsResult.status === "fulfilled" && smsResult.value,
       enabled: process.env.SMS_ENABLED === "true",
+      provider: process.env.SMS_PROVIDER || "not set",
     },
   });
 });
 
 // ── GET /api/test/status ─────────────────────────────────────────────────────
 router.get("/status", guard, protect, (_req: Request, res: Response) => {
-  const waProvider = (process.env.WHATSAPP_PROVIDER ?? "").toLowerCase();
   res.json({
     whatsapp: {
-      provider: waProvider || "disabled",
-      ...(waProvider === "baileys" && {
-        baileysConnected: isWhatsAppReady() ? "✅ connected" : "❌ not connected — scan QR in terminal",
-      }),
-      ...(waProvider === "twilio" && {
-        accountSid:  process.env.TWILIO_ACCOUNT_SID   ? "✅ set" : "❌ missing",
-        authToken:   process.env.TWILIO_AUTH_TOKEN    ? "✅ set" : "❌ missing",
-        fromNumber:  process.env.TWILIO_WHATSAPP_FROM || "❌ missing",
-      }),
-      ...(waProvider === "meta" && {
-        token:       process.env.META_WHATSAPP_TOKEN  ? "✅ set" : "❌ missing",
-        phoneNumId:  process.env.META_PHONE_NUMBER_ID || "❌ missing",
-      }),
+      provider: "meta",
+      token:       process.env.META_WHATSAPP_TOKEN   ? "✅ set" : "❌ missing — set META_WHATSAPP_TOKEN in .env",
+      phoneNumId:  process.env.META_PHONE_NUMBER_ID  ? "✅ set" : "❌ missing — set META_PHONE_NUMBER_ID in .env",
+      ready: !!(process.env.META_WHATSAPP_TOKEN && process.env.META_PHONE_NUMBER_ID),
     },
     sms: {
-      enabled:   process.env.SMS_ENABLED === "true" ? "✅ enabled" : "❌ disabled",
-      provider:  process.env.SMS_PROVIDER || "not set",
+      enabled:  process.env.SMS_ENABLED === "true" ? "✅ enabled" : "❌ disabled (set SMS_ENABLED=true)",
+      provider: process.env.SMS_PROVIDER || "not set",
       ...(process.env.SMS_PROVIDER === "fast2sms" && {
-        apiKey:  process.env.FAST2SMS_API_KEY ? "✅ set" : "❌ missing",
+        apiKey: process.env.FAST2SMS_API_KEY ? "✅ set" : "❌ missing",
       }),
       ...(process.env.SMS_PROVIDER === "twilio" && {
         fromNumber: process.env.TWILIO_SMS_FROM || "❌ missing",
@@ -142,6 +152,37 @@ router.get("/status", guard, protect, (_req: Request, res: Response) => {
       }),
     },
   });
+});
+
+// ── GET /api/test/queue ──────────────────────────────────────────────────────
+router.get("/queue", guard, protect, async (_req: Request, res: Response) => {
+  try {
+    const stats = await getQueueStats();
+    res.json({
+      queue: {
+        pending:    stats.pending    ?? 0,
+        processing: stats.processing ?? 0,
+        sent:       stats.sent       ?? 0,
+        retrying:   stats.retrying   ?? 0,
+        failed:     stats.failed     ?? 0,
+        dead:       stats.dead       ?? 0,
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ message: "Failed to fetch queue stats.", error: err.message });
+  }
+});
+
+// ── POST /api/test/queue/drain ───────────────────────────────────────────────
+// Manually trigger a queue processing cycle (useful during testing)
+router.post("/queue/drain", guard, protect, async (_req: Request, res: Response) => {
+  try {
+    await processQueue();
+    const stats = await getQueueStats();
+    res.json({ message: "Queue drain triggered.", queue: stats });
+  } catch (err: any) {
+    res.status(500).json({ message: "Queue drain failed.", error: err.message });
+  }
 });
 
 export default router;

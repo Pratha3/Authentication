@@ -7,6 +7,8 @@ import { Profile } from "../models/Profile";
 import { AuthRequest } from "../middleware/auth";
 import { emitAttendeeUpdate, emitOrganizerDashboardUpdate } from "../sockets/io";
 import { notifyRegistration, notifyCancellation } from "../services/notification.service";
+import { enqueueNotification } from "../services/notification-queue.service";
+import { normalizePhone } from "../utils/phone.utils";
 
 // ─── POST /api/registrations ─────────────────────────────────────────────
 export const registerForEvent = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -143,28 +145,47 @@ export const cancelRegistration = async (req: AuthRequest, res: Response): Promi
         const promotedEvent = await Event.findByIdAndUpdate(eventId, { $inc: { currentAttendees: 1 } }, { new: true });
         if (promotedEvent) emitAttendeeUpdate(eventId, promotedEvent.currentAttendees, promotedEvent.capacity, promotedEvent.status);
 
-        // Notify promoted user
+        // Notify promoted user via all channels
         const promotedProfile = await Profile.findOne({ userId: waitlisted.userId }).lean();
-        if (promotedProfile?.email) {
+        const ev = await Event.findById(eventId).lean();
+
+        if (ev && promotedProfile?.email) {
           const { sendEmail, buildRegistrationEmail } = await import("../services/email.service");
-          const ev = await Event.findById(eventId).lean();
-          if (ev) {
-            sendEmail({
-              to: promotedProfile.email,
-              subject: `✅ You're now confirmed for ${ev.title}!`,
-              html: buildRegistrationEmail({
-                attendeeName: promotedProfile.fullName ?? promotedProfile.email.split("@")[0],
-                eventTitle: ev.title,
-                eventDate: new Date(ev.startDate).toLocaleString("en-IN"),
-                eventLocation: ev.city ?? "TBD",
-                ticketCode: waitlisted.ticketCode,
-                status: "confirmed",
-                eventUrl: `${process.env.CLIENT_URL}/events/${ev.slug}`,
-                organizerName: "Organizer",
-                isOnline: ev.isOnline,
-                onlineUrl: ev.onlineUrl,
-              }),
-            }).catch(() => {});
+          const attendeeName = promotedProfile.fullName ?? promotedProfile.email.split("@")[0];
+          sendEmail({
+            to: promotedProfile.email,
+            subject: `✅ You're now confirmed for ${ev.title}!`,
+            html: buildRegistrationEmail({
+              attendeeName,
+              eventTitle: ev.title,
+              eventDate: new Date(ev.startDate).toLocaleString("en-IN"),
+              eventLocation: ev.city ?? "TBD",
+              ticketCode: waitlisted.ticketCode,
+              status: "confirmed",
+              eventUrl: `${process.env.CLIENT_URL}/events/${ev.slug}`,
+              organizerName: "Organizer",
+              isOnline: ev.isOnline,
+              onlineUrl: ev.onlineUrl,
+            }),
+          }).catch(() => {});
+
+          // WhatsApp + SMS for promoted user (queued with retry)
+          const rawPhone = promotedProfile.phone ?? "";
+          const phone = normalizePhone(rawPhone);
+          if (phone) {
+            const mobilePayload = {
+              to: phone,
+              type: "confirmation" as const,
+              attendeeName,
+              eventTitle: ev.title,
+              ticketCode: waitlisted.ticketCode,
+              eventDate: new Date(ev.startDate).toLocaleString("en-IN"),
+              eventUrl: `${process.env.CLIENT_URL}/events/${ev.slug}`,
+            };
+            Promise.allSettled([
+              enqueueNotification({ channel: "whatsapp", payload: mobilePayload, userId: String(waitlisted.userId), eventId }),
+              enqueueNotification({ channel: "sms",      payload: mobilePayload, userId: String(waitlisted.userId), eventId }),
+            ]).catch(() => {});
           }
         }
       }

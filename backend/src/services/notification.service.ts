@@ -1,17 +1,20 @@
 /**
  * Notification Orchestrator
  *
- * Channels (fire-and-forget — never block the registration request):
- *   1. In-app  — MongoDB record + Socket.io real-time push
- *   2. WhatsApp — Twilio or Meta (WHATSAPP_PROVIDER env)
- *   3. SMS      — Twilio (SMS_ENABLED=true env)
+ * Channels dispatched on each event:
+ *   1. In-app  — MongoDB record + Socket.io real-time push (synchronous)
+ *   2. WhatsApp — queued via notification-queue.service (retried on failure)
+ *   3. SMS      — queued via notification-queue.service (retried on failure)
+ *
+ * The queue ensures messages survive server crashes and retries automatically
+ * with exponential back-off. Registration responses are never blocked.
  */
 
 import { Notification } from "../models/Notification";
 import { Profile } from "../models/Profile";
 import { emitUserNotification } from "../sockets/io";
-import { sendWhatsApp } from "./whatsapp.service";
-import { sendSms } from "./sms.service";
+import { enqueueNotification } from "./notification-queue.service";
+import { normalizePhone } from "../utils/phone.utils";
 import type { IEvent } from "../models/Event";
 import type { IRegistration } from "../models/Registration";
 import type { IOrganizer } from "../models/Organizer";
@@ -29,6 +32,8 @@ async function getProfile(userId: string) {
   try { return await Profile.findOne({ userId }).lean(); }
   catch { return null; }
 }
+
+// ── In-app notification (always synchronous — never queued) ───────────────────
 
 async function pushInApp(
   userId: string,
@@ -53,81 +58,124 @@ async function pushInApp(
   }
 }
 
-async function sendMobile(params: {
-  phone: string;
+// ── Mobile notification helper (validates phone, enqueues both channels) ──────
+
+async function enqueueMobile(params: {
+  rawPhone: string;
   name: string;
-  type: "confirmation" | "reminder" | "cancellation" | "update";
+  type: "confirmation" | "reminder" | "cancellation" | "update" | "organizer_alert";
   eventTitle: string;
   ticketCode?: string;
   eventDate?: string;
   eventUrl?: string;
+  attendeeCount?: number;
+  userId?: string;
+  eventId?: string;
 }): Promise<void> {
-  if (!params.phone) return;
-  const payload = {
-    to: params.phone,
+  const phone = normalizePhone(params.rawPhone);
+  if (!phone) {
+    console.warn(`[Notification] Invalid/unsupported phone "${params.rawPhone}" — skipping mobile`);
+    return;
+  }
+
+  const basePayload = {
+    to: phone,
     type: params.type,
     attendeeName: params.name,
     eventTitle: params.eventTitle,
     ticketCode: params.ticketCode,
     eventDate: params.eventDate,
     eventUrl: params.eventUrl,
+    attendeeCount: params.attendeeCount,
   };
-  await Promise.allSettled([sendWhatsApp(payload), sendSms(payload)]);
+
+  await Promise.allSettled([
+    enqueueNotification({
+      channel: "whatsapp",
+      payload: basePayload,
+      userId: params.userId,
+      eventId: params.eventId,
+    }),
+    enqueueNotification({
+      channel: "sms",
+      payload: basePayload,
+      userId: params.userId,
+      eventId: params.eventId,
+    }),
+  ]);
 }
+
+// ── Public notification functions ─────────────────────────────────────────────
 
 export async function notifyRegistration(
   registration: IRegistration,
   event: IEvent,
   organizer: IOrganizer
 ): Promise<void> {
-  const userId = String(registration.userId);
+  const userId   = String(registration.userId);
+  const eventId  = String(event._id);
   const eventUrl = `${CLIENT_URL}/events/${event.slug}`;
-  const dashUrl = `${CLIENT_URL}/organizer/dashboard`;
+  const dashUrl  = `${CLIENT_URL}/organizer/dashboard`;
 
-  const details = (registration as any).attendeeDetails ?? {};
-  const profile = await getProfile(userId);
+  const details      = (registration as any).attendeeDetails ?? {};
+  const profile      = await getProfile(userId);
   const attendeeName = details.answers?.registrationName || profile?.fullName || "Attendee";
-  const attendeePhone = details.phone || profile?.phone || "";
+  const rawPhone     = details.phone || profile?.phone || "";
+  const isConfirmed  = registration.status === "confirmed";
 
-  const isConfirmed = registration.status === "confirmed";
-
+  // 1. In-app notification to attendee
   await pushInApp(
     userId,
-    isConfirmed ? `You are registered for ${event.title}!` : `You are on the waitlist for ${event.title}`,
-    isConfirmed ? `Ticket: ${registration.ticketCode}. See you there!` : "We will notify you if a spot opens up.",
+    isConfirmed
+      ? `You are registered for ${event.title}!`
+      : `You are on the waitlist for ${event.title}`,
+    isConfirmed
+      ? `Ticket: ${registration.ticketCode}. See you there!`
+      : "We will notify you if a spot opens up.",
     "registration",
-    { eventId: String(event._id), eventSlug: event.slug, ticketCode: registration.ticketCode, status: registration.status }
+    { eventId, eventSlug: event.slug, ticketCode: registration.ticketCode, status: registration.status }
   );
 
-  if (attendeePhone) {
-    sendMobile({
-      phone: attendeePhone,
+  // 2. WhatsApp + SMS to attendee (queued with retry)
+  if (rawPhone) {
+    enqueueMobile({
+      rawPhone,
       name: attendeeName,
       type: "confirmation",
       eventTitle: event.title,
       ticketCode: registration.ticketCode,
       eventDate: fmtDate(event.startDate),
       eventUrl,
+      userId,
+      eventId,
     }).catch(() => {});
   }
 
-  const orgUserId = String(organizer.userId);
+  // 3. In-app notification to organizer
+  const orgUserId  = String(organizer.userId);
   const orgProfile = await getProfile(orgUserId);
-  const orgPhone = orgProfile?.phone ?? "";
+  const orgPhone   = orgProfile?.phone ?? "";
 
   await pushInApp(
     orgUserId,
     `New registration: ${event.title}`,
     `${attendeeName} just registered (${registration.status}).`,
     "organizer",
-    { eventId: String(event._id), eventSlug: event.slug, attendeeUserId: userId }
+    { eventId, eventSlug: event.slug, attendeeUserId: userId }
   );
 
+  // 4. WhatsApp + SMS to organizer (queued with retry)
   if (orgPhone) {
-    Promise.allSettled([
-      sendWhatsApp({ to: orgPhone, type: "update", attendeeName, eventTitle: event.title, eventUrl: dashUrl }),
-      sendSms({ to: orgPhone, type: "organizer_alert", attendeeName, eventTitle: event.title, attendeeCount: event.currentAttendees, eventUrl: dashUrl }),
-    ]).catch(() => {});
+    enqueueMobile({
+      rawPhone: orgPhone,
+      name: orgProfile?.fullName ?? "Organizer",
+      type: "organizer_alert",
+      eventTitle: event.title,
+      attendeeCount: event.currentAttendees,
+      eventUrl: dashUrl,
+      userId: orgUserId,
+      eventId,
+    }).catch(() => {});
   }
 }
 
@@ -135,23 +183,32 @@ export async function notifyCancellation(
   registration: IRegistration,
   event: IEvent
 ): Promise<void> {
-  const userId = String(registration.userId);
+  const userId   = String(registration.userId);
+  const eventId  = String(event._id);
   const eventUrl = `${CLIENT_URL}/events/${event.slug}`;
-  const details = (registration as any).attendeeDetails ?? {};
-  const profile = await getProfile(userId);
-  const name = details.answers?.registrationName || profile?.fullName || "Attendee";
-  const phone = details.phone || profile?.phone || "";
+  const details  = (registration as any).attendeeDetails ?? {};
+  const profile  = await getProfile(userId);
+  const name     = details.answers?.registrationName || profile?.fullName || "Attendee";
+  const rawPhone = details.phone || profile?.phone || "";
 
   await pushInApp(
     userId,
     `Registration cancelled: ${event.title}`,
     "Your registration has been cancelled. Re-register anytime.",
     "registration",
-    { eventId: String(event._id), eventSlug: event.slug }
+    { eventId, eventSlug: event.slug }
   );
 
-  if (phone) {
-    sendMobile({ phone, name, type: "cancellation", eventTitle: event.title, eventUrl }).catch(() => {});
+  if (rawPhone) {
+    enqueueMobile({
+      rawPhone,
+      name,
+      type: "cancellation",
+      eventTitle: event.title,
+      eventUrl,
+      userId,
+      eventId,
+    }).catch(() => {});
   }
 }
 
@@ -159,22 +216,39 @@ export async function notifyEventStatusUpdate(
   event: IEvent,
   registeredUserIds: string[]
 ): Promise<void> {
+  const eventId  = String(event._id);
   const eventUrl = `${CLIENT_URL}/events/${event.slug}`;
+
   const msgs: Record<string, { title: string; body: string }> = {
-    live:      { title: `${event.title} is LIVE!`,  body: "The event has started — join now!" },
-    cancelled: { title: `${event.title} cancelled`,  body: "The event has been cancelled." },
-    completed: { title: `${event.title} wrapped up`, body: "Thanks for attending!" },
+    live:      { title: `${event.title} is LIVE!`,   body: "The event has started — join now!" },
+    cancelled: { title: `${event.title} cancelled`,   body: "The event has been cancelled." },
+    completed: { title: `${event.title} wrapped up`,  body: "Thanks for attending!" },
   };
   const msg = msgs[event.status];
   if (!msg) return;
 
   await Promise.allSettled(
     registeredUserIds.map(async (uid) => {
-      await pushInApp(uid, msg.title, msg.body, "event_update", { eventId: String(event._id), eventSlug: event.slug, status: event.status });
-      const profile = await getProfile(uid);
-      const phone = profile?.phone ?? "";
-      if (phone) {
-        sendMobile({ phone, name: profile?.fullName ?? "Attendee", type: "update", eventTitle: event.title, eventUrl }).catch(() => {});
+      await pushInApp(
+        uid,
+        msg.title,
+        msg.body,
+        "event_update",
+        { eventId, eventSlug: event.slug, status: event.status }
+      );
+
+      const profile  = await getProfile(uid);
+      const rawPhone = profile?.phone ?? "";
+      if (rawPhone) {
+        enqueueMobile({
+          rawPhone,
+          name: profile?.fullName ?? "Attendee",
+          type: "update",
+          eventTitle: event.title,
+          eventUrl,
+          userId: uid,
+          eventId,
+        }).catch(() => {});
       }
     })
   );
@@ -185,20 +259,34 @@ export async function sendEventReminders(
   registrations: Array<{ userId: string; ticketCode: string }>,
   hoursUntil: number
 ): Promise<void> {
+  const eventId  = String(event._id);
   const eventUrl = `${CLIENT_URL}/events/${event.slug}`;
+
   await Promise.allSettled(
     registrations.map(async ({ userId, ticketCode }) => {
-      const profile = await getProfile(userId);
-      const phone = profile?.phone ?? "";
+      const profile  = await getProfile(userId);
+      const rawPhone = profile?.phone ?? "";
+
       await pushInApp(
         userId,
         `Reminder: ${event.title} ${hoursUntil <= 24 ? "is tomorrow!" : `in ${Math.round(hoursUntil / 24)} days`}`,
         `Ticket: ${ticketCode}`,
         "reminder",
-        { eventId: String(event._id), eventSlug: event.slug }
+        { eventId, eventSlug: event.slug }
       );
-      if (phone) {
-        sendMobile({ phone, name: profile?.fullName ?? "Attendee", type: "reminder", eventTitle: event.title, ticketCode, eventDate: fmtDate(event.startDate), eventUrl }).catch(() => {});
+
+      if (rawPhone) {
+        enqueueMobile({
+          rawPhone,
+          name: profile?.fullName ?? "Attendee",
+          type: "reminder",
+          eventTitle: event.title,
+          ticketCode,
+          eventDate: fmtDate(event.startDate),
+          eventUrl,
+          userId,
+          eventId,
+        }).catch(() => {});
       }
     })
   );

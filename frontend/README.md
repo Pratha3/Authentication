@@ -1,73 +1,65 @@
-# React + TypeScript + Vite
+Meta Setup (30 minutes, one-time)
+Step 1 — Create your Meta App
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Go to developers.facebook.com → My Apps → Create App → choose Business
 
-Currently, two official plugins are available:
+Step 2 — Add WhatsApp
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Inside your app → Add Product → WhatsApp → Set Up
 
-## React Compiler
+Step 3 — Get your credentials
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Go to WhatsApp → API Setup. You'll see this page:
 
-## Expanding the ESLint configuration
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+Temporary access token:  EAAxxxxxxxxxxxxxxxx   ← META_WHATSAPP_TOKEN
+Phone number ID:         1234567890123         ← META_PHONE_NUMBER_ID
+Copy both into your .env:
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+META_WHATSAPP_TOKEN=EAAxxxxxxxxxxxxxxxx
+META_PHONE_NUMBER_ID=1234567890123
+Step 4 — Add a test recipient
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+On the same page, under "To" → add your phone number → click Send Message. Meta sends a test WhatsApp to verify.
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Step 5 — Test your server
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+# Start backend
+cd backend && npm run dev
+
+# Check status
+curl http://localhost:5000/api/test/status \
+  -H "Authorization: Bearer YOUR_JWT"
+Expected:
+
+
+{
+  "whatsapp": {
+    "provider": "meta",
+    "token": "✅ set",
+    "phoneNumId": "✅ set",
+    "ready": true
+  }
+}
+Step 6 — Send a test message
+
+
+curl -X POST http://localhost:5000/api/test/whatsapp \
+  -H "Authorization: Bearer YOUR_JWT" \
+  -H "Content-Type: application/json" \
+  -d '{"to": "+91XXXXXXXXXX"}'
+Your phone receives:
+
+
+✅ Registration Confirmed!
+Hi Test User 👋
+You're registered for EventSphere Test Event!
+🎫 Ticket: TEST1234
+...
+_EventSphere_
+One Important Production Note
+The Meta test number (the one they give you in the dashboard) can message any verified recipient. For production with your own registered business number, the first message to a user must use a pre-approved template (Meta reviews these in 2–4 hours). After a user replies, you can send free-form messages for 24 hours.
+
+For an event platform where users are registering and you're confirming their registration, they've already interacted — so the 24h window usually covers your use case. When you go live, submit your confirmation/reminder/cancellation messages as templates so you're fully compliant.
