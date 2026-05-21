@@ -2,7 +2,7 @@
  * Event Reminder Job
  *
  * Runs every hour. For each upcoming event starting in ~24 h or ~1 h,
- * sends WhatsApp + SMS + in-app reminders to all confirmed attendees.
+ * sends in-app reminders plus enabled mobile channels to all confirmed attendees.
  *
  * De-duplication: a per-process in-memory set tracks which (eventId, window)
  * combinations have already fired so restarts won't double-send within the

@@ -21,7 +21,7 @@ describe('Bookmarks API', () => {
     const res = await request(app)
       .post('/api/bookmarks')
       .set('Authorization', `Bearer ${token}`)
-      .send({ eventId: String(evt._id) })
+      .send({ eventId: String((evt as any)._id) })
 
     expect(res.status).toBe(201)
     expect(res.body.data).toBeDefined()
@@ -35,12 +35,12 @@ describe('Bookmarks API', () => {
     await request(app)
       .post('/api/bookmarks')
       .set('Authorization', `Bearer ${token}`)
-      .send({ eventId: String(evt._id) })
+      .send({ eventId: String((evt as any)._id) })
 
     const res = await request(app)
       .post('/api/bookmarks')
       .set('Authorization', `Bearer ${token}`)
-      .send({ eventId: String(evt._id) })
+      .send({ eventId: String((evt as any)._id) })
     expect(res.status).toBe(409)
   })
 
@@ -52,10 +52,10 @@ describe('Bookmarks API', () => {
     await request(app)
       .post('/api/bookmarks')
       .set('Authorization', `Bearer ${token}`)
-      .send({ eventId: String(evt._id) })
+      .send({ eventId: String((evt as any)._id) })
 
     const del = await request(app)
-      .delete(`/api/bookmarks/${evt._id}`)
+      .delete(`/api/bookmarks/${(evt as any)._id}`)
       .set('Authorization', `Bearer ${token}`)
     expect(del.status).toBe(200)
 
@@ -71,8 +71,8 @@ describe('Bookmarks API', () => {
     const evt2 = await createEvent(String(organizer._id), { slug: 'bm2' })
     const { token } = await createUser()
 
-    await request(app).post('/api/bookmarks').set('Authorization', `Bearer ${token}`).send({ eventId: String(evt1._id) })
-    await request(app).post('/api/bookmarks').set('Authorization', `Bearer ${token}`).send({ eventId: String(evt2._id) })
+    await request(app).post('/api/bookmarks').set('Authorization', `Bearer ${token}`).send({ eventId: String((evt1 as any)._id) })
+    await request(app).post('/api/bookmarks').set('Authorization', `Bearer ${token}`).send({ eventId: String((evt2 as any)._id) })
 
     const res = await request(app).get('/api/bookmarks').set('Authorization', `Bearer ${token}`)
     expect(res.status).toBe(200)

@@ -51,6 +51,9 @@ export async function enqueueNotification(params: {
       userId: params.userId ?? null,
       eventId: params.eventId ?? null,
     });
+
+    // Trigger immediate processing of the queue instead of waiting for the cron tick
+    processQueue().catch(() => {});
   } catch (err: any) {
     console.error("[Queue] Failed to enqueue notification:", err.message);
   }
@@ -59,13 +62,16 @@ export async function enqueueNotification(params: {
 // ── Process a single job ──────────────────────────────────────────────────────
 
 async function processJob(jobId: string): Promise<void> {
-  const job = await NotificationLog.findById(jobId);
-  if (!job || job.status === "sent" || job.status === "dead") return;
+  const job = await NotificationLog.findOneAndUpdate(
+    { _id: jobId, status: { $in: ["pending", "retrying"] } },
+    {
+      $set: { status: "processing", lastAttemptAt: new Date() },
+      $inc: { attempts: 1 },
+    },
+    { returnDocument: "after" }
+  );
 
-  job.status = "processing";
-  job.attempts += 1;
-  job.lastAttemptAt = new Date();
-  await job.save();
+  if (!job) return; // Job not found, or already processed/processing by another worker tick
 
   try {
     let success = false;

@@ -28,6 +28,14 @@ export interface WhatsAppMessage {
   attendeeCount?: number;
 }
 
+export function isWhatsAppEnabled(): boolean {
+  return (
+    process.env.WHATSAPP_ENABLED === "true" &&
+    Boolean(process.env.META_WHATSAPP_TOKEN) &&
+    Boolean(process.env.META_PHONE_NUMBER_ID)
+  );
+}
+
 interface MetaTextPayload {
   messaging_product: "whatsapp";
   to: string;
@@ -119,6 +127,11 @@ export async function sendWhatsApp(msg: WhatsAppMessage): Promise<boolean> {
 
   const token = process.env.META_WHATSAPP_TOKEN;
   const phoneNumberId = process.env.META_PHONE_NUMBER_ID;
+
+  if (process.env.WHATSAPP_ENABLED !== "true") {
+    console.info("[WhatsApp/Meta] Skipped — WHATSAPP_ENABLED is not true");
+    return false;
+  }
 
   if (!token || !phoneNumberId) {
     console.warn(

@@ -27,14 +27,14 @@ describe('User model (DB-USER-001…005)', () => {
   })
 
   it('DB-USER-002 rejects duplicate email (unique index)', async () => {
-    await User.create({ email: 'dup@test.com', password: 'hash' })
+    await User.create({ email: 'dup@test.com', password: 'hashedpassword' })
     await expect(
-      User.create({ email: 'dup@test.com', password: 'hash2' })
+      User.create({ email: 'dup@test.com', password: 'hashedpassword' })
     ).rejects.toThrow()
   })
 
   it('DB-USER-003 rejects missing required email field', async () => {
-    await expect(User.create({ password: 'hash' })).rejects.toThrow()
+    await expect(User.create({ password: 'hashedpassword' })).rejects.toThrow()
   })
 
   it('DB-USER-003 rejects missing required password field', async () => {
@@ -42,7 +42,7 @@ describe('User model (DB-USER-001…005)', () => {
   })
 
   it('stores email as lowercase', async () => {
-    const user = await User.create({ email: 'UPPER@TEST.COM', password: 'hash' })
+    const user = await User.create({ email: 'UPPER@TEST.COM', password: 'hashedpassword' })
     expect(user.email).toBe('upper@test.com')
   })
 })
@@ -50,14 +50,14 @@ describe('User model (DB-USER-001…005)', () => {
 // ─── Profile model ────────────────────────────────────────────────────────────
 describe('Profile model (DB-USER-004…005)', () => {
   it('creates profile with default role=user', async () => {
-    const user = await User.create({ email: 'p@test.com', password: 'hash' })
+    const user = await User.create({ email: 'p@test.com', password: 'hashedpassword' })
     const profile = await Profile.create({ userId: user._id, email: 'p@test.com' })
     expect(profile.role).toBe('user')
     expect(profile.isActive).toBe(true)
   })
 
   it('DB-USER-004 updates role for soft-flag changes', async () => {
-    const user = await User.create({ email: 'r@test.com', password: 'hash' })
+    const user = await User.create({ email: 'r@test.com', password: 'hashedpassword' })
     const profile = await Profile.create({ userId: user._id, email: 'r@test.com' })
     await Profile.findByIdAndUpdate(profile._id, { role: 'organizer' })
     const updated = await Profile.findById(profile._id)
@@ -65,8 +65,8 @@ describe('Profile model (DB-USER-004…005)', () => {
   })
 
   it('DB-USER-005 queries by role correctly', async () => {
-    const u1 = await User.create({ email: 'a@t.com', password: 'h' })
-    const u2 = await User.create({ email: 'b@t.com', password: 'h' })
+    const u1 = await User.create({ email: 'a@t.com', password: 'hashed' })
+    const u2 = await User.create({ email: 'b@t.com', password: 'hashed' })
     await Profile.create({ userId: u1._id, email: 'a@t.com', role: 'organizer' })
     await Profile.create({ userId: u2._id, email: 'b@t.com', role: 'user' })
 
@@ -81,7 +81,7 @@ describe('Event model (DB-EVENT-001…005)', () => {
   let organizerId: mongoose.Types.ObjectId
 
   beforeEach(async () => {
-    const user = await User.create({ email: 'org@test.com', password: 'hash' })
+    const user = await User.create({ email: 'org@test.com', password: 'hashedpassword' })
     const org = await Organizer.create({ userId: user._id, organizationName: 'Org' })
     organizerId = org._id as mongoose.Types.ObjectId
   })
@@ -141,7 +141,7 @@ describe('Event model (DB-EVENT-001…005)', () => {
 // ─── Registration model ───────────────────────────────────────────────────────
 describe('Registration model (DB-REG-001…004)', () => {
   it('DB-REG-001 creates registration with unique ticket code', async () => {
-    const u = await User.create({ email: 'regu@t.com', password: 'h' })
+    const u = await User.create({ email: 'regu@t.com', password: 'hashed' })
     const org = await Organizer.create({ userId: u._id, organizationName: 'O' })
     const evt = await Event.create({
       organizerId: org._id, title: 'R', slug: 'r-evt', description: 'D',
@@ -154,7 +154,7 @@ describe('Registration model (DB-REG-001…004)', () => {
   })
 
   it('DB-REG-002 rejects duplicate eventId+userId', async () => {
-    const u = await User.create({ email: 'dupreg@t.com', password: 'h' })
+    const u = await User.create({ email: 'dupreg@t.com', password: 'hashed' })
     const org = await Organizer.create({ userId: u._id, organizationName: 'O' })
     const evt = await Event.create({
       organizerId: org._id, title: 'DupR', slug: 'dup-r', description: 'D',
@@ -167,7 +167,7 @@ describe('Registration model (DB-REG-001…004)', () => {
   })
 
   it('DB-REG-003 can delete registration', async () => {
-    const u = await User.create({ email: 'delreg@t.com', password: 'h' })
+    const u = await User.create({ email: 'delreg@t.com', password: 'hashed' })
     const org = await Organizer.create({ userId: u._id, organizationName: 'O' })
     const evt = await Event.create({
       organizerId: org._id, title: 'Del', slug: 'del-r', description: 'D',
@@ -183,7 +183,7 @@ describe('Registration model (DB-REG-001…004)', () => {
 // ─── Notification model ───────────────────────────────────────────────────────
 describe('Notification model', () => {
   it('creates notification with isRead=false by default', async () => {
-    const u = await User.create({ email: 'notif@t.com', password: 'h' })
+    const u = await User.create({ email: 'notif@t.com', password: 'hashed' })
     const notif = await Notification.create({
       userId: u._id, title: 'Hello', body: 'World', type: 'system',
     })
@@ -191,7 +191,7 @@ describe('Notification model', () => {
   })
 
   it('can mark notification as read', async () => {
-    const u = await User.create({ email: 'read@t.com', password: 'h' })
+    const u = await User.create({ email: 'read@t.com', password: 'hashed' })
     const notif = await Notification.create({
       userId: u._id, title: 'Read me', body: 'Body', type: 'system',
     })

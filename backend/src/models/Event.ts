@@ -82,7 +82,7 @@ const eventSchema = new Schema<IEvent>(
     country: { type: String, default: null },
     latitude: { type: Number, default: null },
     longitude: { type: Number, default: null },
-    capacity: { type: Number, default: null },
+    capacity: { type: Number, default: null, min: 0 },
     currentAttendees: { type: Number, default: 0 },
     price: { type: Number, default: 0 },
     currency: { type: String, default: "INR" },
@@ -97,6 +97,13 @@ const eventSchema = new Schema<IEvent>(
   },
   { timestamps: true }
 );
+
+// Cross-field validation
+eventSchema.pre("validate", function () {
+  if (this.startDate && this.endDate && this.endDate < this.startDate) {
+    this.invalidate("endDate", "End date must be after or equal to start date");
+  }
+});
 
 // Text index for search
 eventSchema.index({ title: "text", description: "text", tags: "text" });

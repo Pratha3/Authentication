@@ -9,10 +9,10 @@ import type { Event } from '@/types'
 
 // Mock bookmark hook
 jest.mock('@/hooks/useBookmark', () => ({
-  useBookmark: (id: string) => ({
+  useBookmark: jest.fn((id: string) => ({
     bookmarked: id === 'bookmarked-event',
     toggleBookmark: jest.fn(),
-  }),
+  })),
 }))
 
 const baseEvent: Event = {
@@ -57,7 +57,7 @@ describe('EventCard', () => {
   it('renders event title and category', () => {
     render(<EventCard event={baseEvent} />)
     expect(screen.getByText('Tech Meetup Mumbai')).toBeInTheDocument()
-    expect(screen.getByText(/Tech/)).toBeInTheDocument()
+    expect(screen.getAllByText(/Tech/)[0]).toBeInTheDocument()
   })
 
   it('shows Free badge for free events', () => {

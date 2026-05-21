@@ -6,9 +6,10 @@
 import { Router, Request, Response } from "express";
 import rateLimit from "express-rate-limit";
 import { protect } from "../middleware/auth";
-import { sendWhatsApp } from "../services/whatsapp.service";
+import { isWhatsAppEnabled, sendWhatsApp } from "../services/whatsapp.service";
 import { sendSms } from "../services/sms.service";
 import { getQueueStats, processQueue } from "../services/notification-queue.service";
+import { normalizePhone } from "../utils/phone.utils";
 
 const router = Router();
 
@@ -33,7 +34,7 @@ const testLimiter = rateLimit({
 // ── POST /api/test/whatsapp ──────────────────────────────────────────────────
 // Body: { "to": "+919876543210" }
 router.post("/whatsapp", guard, testLimiter, protect, async (req: Request, res: Response) => {
-  const { to } = req.body;
+  const to = normalizePhone(req.body.to);
   if (!to) {
     res.status(400).json({ message: '"to" phone number is required (E.164: +91XXXXXXXXXX)' });
     return;
@@ -53,17 +54,18 @@ router.post("/whatsapp", guard, testLimiter, protect, async (req: Request, res: 
     sent,
     channel: "whatsapp",
     provider: "meta",
+    enabled: isWhatsAppEnabled(),
     to,
     message: sent
       ? `✅ WhatsApp sent to ${to}`
-      : "❌ Not sent — check META_WHATSAPP_TOKEN and META_PHONE_NUMBER_ID in .env",
+      : "❌ Not sent — WhatsApp is disabled unless WHATSAPP_ENABLED=true and Meta env vars are set",
   });
 });
 
 // ── POST /api/test/sms ───────────────────────────────────────────────────────
 // Body: { "to": "+919876543210" }
 router.post("/sms", guard, testLimiter, protect, async (req: Request, res: Response) => {
-  const { to } = req.body;
+  const to = normalizePhone(req.body.to);
   if (!to) {
     res.status(400).json({ message: '"to" phone number is required (E.164: +91XXXXXXXXXX)' });
     return;
@@ -94,7 +96,7 @@ router.post("/sms", guard, testLimiter, protect, async (req: Request, res: Respo
 // ── POST /api/test/both ──────────────────────────────────────────────────────
 // Fires WhatsApp + SMS simultaneously — Body: { "to": "+919876543210" }
 router.post("/both", guard, testLimiter, protect, async (req: Request, res: Response) => {
-  const { to } = req.body;
+  const to = normalizePhone(req.body.to);
   if (!to) {
     res.status(400).json({ message: '"to" phone number is required' });
     return;
@@ -120,6 +122,7 @@ router.post("/both", guard, testLimiter, protect, async (req: Request, res: Resp
     whatsapp: {
       sent: waResult.status === "fulfilled" && waResult.value,
       provider: "meta",
+      enabled: isWhatsAppEnabled(),
     },
     sms: {
       sent: smsResult.status === "fulfilled" && smsResult.value,
@@ -134,9 +137,10 @@ router.get("/status", guard, protect, (_req: Request, res: Response) => {
   res.json({
     whatsapp: {
       provider: "meta",
-      token:       process.env.META_WHATSAPP_TOKEN   ? "✅ set" : "❌ missing — set META_WHATSAPP_TOKEN in .env",
-      phoneNumId:  process.env.META_PHONE_NUMBER_ID  ? "✅ set" : "❌ missing — set META_PHONE_NUMBER_ID in .env",
-      ready: !!(process.env.META_WHATSAPP_TOKEN && process.env.META_PHONE_NUMBER_ID),
+      enabled: process.env.WHATSAPP_ENABLED === "true" ? "✅ enabled" : "disabled (set WHATSAPP_ENABLED=true to use Meta)",
+      token:       process.env.META_WHATSAPP_TOKEN   ? "✅ set" : "missing",
+      phoneNumId:  process.env.META_PHONE_NUMBER_ID  ? "✅ set" : "missing",
+      ready: isWhatsAppEnabled(),
     },
     sms: {
       enabled:  process.env.SMS_ENABLED === "true" ? "✅ enabled" : "❌ disabled (set SMS_ENABLED=true)",

@@ -152,7 +152,7 @@ describe('PATCH /api/events/:id', () => {
     const evt = await createEvent(String(organizer._id))
 
     const res = await request(app)
-      .patch(`/api/events/${evt._id}`)
+      .patch(`/api/events/${(evt as any)._id}`)
       .set('Authorization', `Bearer ${token}`)
       .send({ title: 'Updated Title' })
     expect(res.status).toBe(200)
@@ -165,7 +165,7 @@ describe('PATCH /api/events/:id', () => {
     const evt = await createEvent(String(organizer._id))
 
     const res = await request(app)
-      .patch(`/api/events/${evt._id}`)
+      .patch(`/api/events/${(evt as any)._id}`)
       .set('Authorization', `Bearer ${otherToken}`)
       .send({ title: 'Hacked Title' })
     expect(res.status).toBe(403)
@@ -177,7 +177,7 @@ describe('PATCH /api/events/:id', () => {
     const evt = await createEvent(String(organizer._id))
 
     const res = await request(app)
-      .patch(`/api/events/${evt._id}`)
+      .patch(`/api/events/${(evt as any)._id}`)
       .set('Authorization', `Bearer ${token}`)
       .send({ status: 'live' })
     expect(res.status).toBe(200)
@@ -192,7 +192,7 @@ describe('DELETE /api/events/:id', () => {
     const evt = await createEvent(String(organizer._id))
 
     const res = await request(app)
-      .delete(`/api/events/${evt._id}`)
+      .delete(`/api/events/${(evt as any)._id}`)
       .set('Authorization', `Bearer ${token}`)
     expect(res.status).toBe(200)
 
@@ -206,7 +206,7 @@ describe('DELETE /api/events/:id', () => {
     const evt = await createEvent(String(organizer._id))
 
     const res = await request(app)
-      .delete(`/api/events/${evt._id}`)
+      .delete(`/api/events/${(evt as any)._id}`)
       .set('Authorization', `Bearer ${otherToken}`)
     expect(res.status).toBe(403)
   })

@@ -46,7 +46,7 @@ describe('POST /api/auth/signup', () => {
   // AUTH-003: Short password (backend uses min 6 chars)
   it('AUTH-003 rejects password shorter than minimum', async () => {
     const res = await request(app).post('/api/auth/signup').send({
-      email: 'short@test.com', password: '123',
+      email: 'short@test.com', password: 'short',
     })
     expect(res.status).toBeGreaterThanOrEqual(400)
   })

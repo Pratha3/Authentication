@@ -1,7 +1,7 @@
 import { Router } from "express";
 import {
   getEvents, getFeaturedEvents, getNearbyEvents,
-  getEventBySlug, createEvent, updateEvent, deleteEvent, getOrganizerEvents,
+  getEventBySlug, createEvent, updateEvent, deleteEvent, getOrganizerEvents, eventChat,
 } from "../controllers/eventController";
 import { protect, optionalProtect } from "../middleware/auth";
 
@@ -20,5 +20,6 @@ router.delete("/:id", protect, deleteEvent);
 
 // ── Dynamic slug — MUST be last ───────────────────────────────────────────────
 router.get("/:slug", optionalProtect, getEventBySlug);
+router.post("/:slug/chat", eventChat);
 
 export default router;

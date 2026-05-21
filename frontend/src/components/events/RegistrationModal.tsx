@@ -236,7 +236,7 @@ export function RegistrationModal({ event, open, onClose, onSuccess }: Registrat
                       <div className="space-y-1.5">
                         <Label htmlFor="phone" className="flex items-center gap-1.5">
                           <Phone className="h-3.5 w-3.5 text-muted-foreground" />
-                          Phone Number <span className="text-destructive">*</span>
+                          Phone Number <span className="text-xs text-muted-foreground font-normal">(optional)</span>
                         </Label>
                         <Input
                           id="phone"
@@ -246,7 +246,7 @@ export function RegistrationModal({ event, open, onClose, onSuccess }: Registrat
                           {...register('phone')}
                         />
                         {errors.phone && <p className="text-xs text-destructive">{errors.phone.message}</p>}
-                        <p className="text-xs text-muted-foreground">For WhatsApp reminders (optional)</p>
+                        <p className="text-xs text-muted-foreground">For mobile reminders</p>
                       </div>
 
                       {/* Name */}
@@ -348,8 +348,8 @@ export function RegistrationModal({ event, open, onClose, onSuccess }: Registrat
                       </h2>
                       <p className="text-sm text-muted-foreground mt-1">
                         {regStatus === 'confirmed'
-                          ? 'Confirmation sent to your email & WhatsApp.'
-                          : "We'll notify you via email & WhatsApp when a spot opens up."}
+                          ? 'Confirmation sent to your email.'
+                          : "We'll notify you by email when a spot opens up."}
                       </p>
                     </div>
 

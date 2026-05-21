@@ -2,7 +2,7 @@
  * USER-003…USER-005 — EventFilters interaction tests.
  */
 import React from 'react'
-import { screen, fireEvent } from '@testing-library/react'
+import { screen, fireEvent, waitFor } from '@testing-library/react'
 import { render } from '../setup/renderWithProviders'
 import { EventFilters } from '@/components/events/EventFilters'
 import { useEventsStore } from '@/store/events.store'
@@ -34,7 +34,7 @@ describe('EventFilters', () => {
     expect(screen.getByRole('button', { name: /filters/i })).toBeInTheDocument()
   })
 
-  it('toggles filter panel open/close', () => {
+  it('toggles filter panel open/close', async () => {
     render(<EventFilters />)
     const btn = screen.getByRole('button', { name: /filters/i })
 
@@ -47,7 +47,7 @@ describe('EventFilters', () => {
 
     // Close
     fireEvent.click(btn)
-    expect(screen.queryByText('Category')).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByText('Category')).not.toBeInTheDocument())
   })
 
   it('USER-003 selecting category updates store filters', () => {

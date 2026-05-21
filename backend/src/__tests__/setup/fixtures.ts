@@ -9,7 +9,7 @@ export const makeToken = (userId: string) =>
   jwt.sign({ userId }, process.env.JWT_SECRET!, { expiresIn: '1h' })
 
 export async function createUser(overrides: Partial<{
-  email: string; password: string; name: string; role: string
+  email: string; password: string; name: string; role: 'user' | 'organizer' | 'admin'
 }> = {}) {
   const plain = overrides.password ?? 'Password123!'
   const hash = await bcrypt.hash(plain, 10)
@@ -44,7 +44,7 @@ export async function createAdmin() {
   return { user, profile, token }
 }
 
-export async function createEvent(organizerId: string, overrides: Record<string, unknown> = {}) {
+export async function createEvent(organizerId: string, overrides: any = {}) {
   return Event.create({
     organizerId,
     title: overrides.title ?? 'Tech Meetup 2025',

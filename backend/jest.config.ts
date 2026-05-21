@@ -5,7 +5,10 @@ const config: Config = {
   testEnvironment: 'node',
   rootDir: '.',
   testMatch: ['<rootDir>/src/__tests__/**/*.test.ts'],
-  moduleNameMapper: { '^@/(.*)$': '<rootDir>/src/$1' },
+  moduleNameMapper: {
+    '^@/(.*)$': '<rootDir>/src/$1',
+    '^uuid$': '<rootDir>/src/__tests__/mocks/uuid.ts'
+  },
   globalSetup: '<rootDir>/src/__tests__/setup/globalSetup.ts',
   globalTeardown: '<rootDir>/src/__tests__/setup/globalTeardown.ts',
   collectCoverageFrom: [

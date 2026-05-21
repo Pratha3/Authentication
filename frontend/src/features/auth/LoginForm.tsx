@@ -57,7 +57,7 @@ export function LoginForm() {
         <p className="text-muted-foreground">Sign in to discover amazing events</p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
           <Input id="email" type="email" placeholder="you@example.com" autoComplete="email" {...register('email')} />

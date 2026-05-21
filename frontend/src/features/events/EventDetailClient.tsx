@@ -16,6 +16,7 @@ import { useBookmark } from '@/hooks/useBookmark'
 import { useRealtimeEvent } from '@/hooks/useRealtimeEvent'
 import { useEventsStore } from '@/store/events.store'
 import { RegistrationModal } from '@/components/events/RegistrationModal'
+import { EventAIChat } from '@/features/events/components/EventAIChat'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { EVENT_CATEGORIES, EVENT_STATUS_CONFIG, ROUTES } from '@/constants'
@@ -327,6 +328,8 @@ export function EventDetailClient({ slug }: Props) {
           </div>
         </div>
       </motion.div>
+
+      <EventAIChat eventSlug={slug} />
     </main>
   )
 }

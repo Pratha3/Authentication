@@ -115,7 +115,7 @@ export function ProfileClient() {
                 <Label>Phone</Label>
                 <Input type="tel" placeholder="+91 98765 43210" {...register('phone')} />
                 {errors.phone && <p className="text-xs text-destructive">{errors.phone.message}</p>}
-                <p className="text-xs text-muted-foreground">Used for WhatsApp notifications</p>
+                <p className="text-xs text-muted-foreground">Used for mobile notifications</p>
               </div>
               <div className="space-y-2">
                 <Label>City / Location</Label>

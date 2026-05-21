@@ -104,7 +104,7 @@ export function SignupForm() {
             {...register('phone')}
           />
           {errors.phone && <p className="text-sm text-destructive">{errors.phone.message}</p>}
-          <p className="text-xs text-muted-foreground">For WhatsApp event reminders & confirmations</p>
+          <p className="text-xs text-muted-foreground">For mobile event reminders & confirmations</p>
         </div>
 
         <div className="space-y-2">

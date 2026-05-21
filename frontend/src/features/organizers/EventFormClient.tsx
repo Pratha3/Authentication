@@ -40,6 +40,9 @@ const eventSchema = z.object({
 }).refine(
   (d) => !d.is_online || !d.online_url || d.online_url === '' || d.online_url.startsWith('http'),
   { message: 'Online URL must start with http', path: ['online_url'] }
+).refine(
+  (d) => new Date(d.end_date) >= new Date(d.start_date),
+  { message: 'End date must be after or equal to start date', path: ['end_date'] }
 )
 
 type EventFormInput = z.infer<typeof eventSchema>

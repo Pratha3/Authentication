@@ -69,6 +69,11 @@ export const createOrganizerProfile = async (req: AuthRequest, res: Response): P
 // GET /api/profiles/admin/users
 export const getAllUsers = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    const caller = await Profile.findOne({ userId: req.userId });
+    if (!caller || caller.role !== "admin") {
+      res.status(403).json({ message: "Admin access required." });
+      return;
+    }
     const page = Number(req.query.page) || 1;
     const pageSize = Number(req.query.pageSize) || 20;
     const skip = (page - 1) * pageSize;

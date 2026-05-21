@@ -136,12 +136,13 @@ export const cancelRegistration = async (req: AuthRequest, res: Response): Promi
       );
       if (updated) emitAttendeeUpdate(eventId, updated.currentAttendees, updated.capacity, updated.status);
 
-      // Promote first waitlisted user if any
-      const waitlisted = await Registration.findOne({ eventId, status: "waitlisted" })
-        .sort({ registeredAt: 1 });
+      // Promote first waitlisted user if any (Atomically)
+      const waitlisted = await Registration.findOneAndUpdate(
+        { eventId, status: "waitlisted" },
+        { $set: { status: "confirmed" } },
+        { sort: { registeredAt: 1 }, new: true }
+      );
       if (waitlisted) {
-        waitlisted.status = "confirmed";
-        await waitlisted.save();
         const promotedEvent = await Event.findByIdAndUpdate(eventId, { $inc: { currentAttendees: 1 } }, { new: true });
         if (promotedEvent) emitAttendeeUpdate(eventId, promotedEvent.currentAttendees, promotedEvent.capacity, promotedEvent.status);
 

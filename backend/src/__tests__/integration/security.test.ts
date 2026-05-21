@@ -77,7 +77,7 @@ describe('SEC-006 role escalation prevention', () => {
     const evt = await createEvent(String(organizer._id))
 
     const res = await request(app)
-      .delete(`/api/events/${evt._id}`)
+      .delete(`/api/events/${(evt as any)._id}`)
       .set('Authorization', `Bearer ${attackerToken}`)
     expect(res.status).toBe(403)
   })

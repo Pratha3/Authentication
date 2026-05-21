@@ -25,13 +25,13 @@ describe('POST /api/registrations', () => {
     const res = await request(app)
       .post('/api/registrations')
       .set('Authorization', `Bearer ${token}`)
-      .send({ eventId: String(evt._id) })
+      .send({ eventId: String((evt as any)._id) })
 
     expect(res.status).toBe(201)
     expect(res.body.data.status).toBe('confirmed')
 
     // REG-005: Attendee count incremented
-    const updated = await Event.findById(evt._id)
+    const updated = await Event.findById((evt as any)._id)
     expect(updated?.currentAttendees).toBe(1)
   })
 
@@ -44,12 +44,12 @@ describe('POST /api/registrations', () => {
     await request(app)
       .post('/api/registrations')
       .set('Authorization', `Bearer ${token}`)
-      .send({ eventId: String(evt._id) })
+      .send({ eventId: String((evt as any)._id) })
 
     const res = await request(app)
       .post('/api/registrations')
       .set('Authorization', `Bearer ${token}`)
-      .send({ eventId: String(evt._id) })
+      .send({ eventId: String((evt as any)._id) })
 
     expect(res.status).toBe(409)
   })
@@ -65,12 +65,12 @@ describe('POST /api/registrations', () => {
     await request(app)
       .post('/api/registrations')
       .set('Authorization', `Bearer ${t1}`)
-      .send({ eventId: String(evt._id) })
+      .send({ eventId: String((evt as any)._id) })
 
     const res = await request(app)
       .post('/api/registrations')
       .set('Authorization', `Bearer ${t2}`)
-      .send({ eventId: String(evt._id) })
+      .send({ eventId: String((evt as any)._id) })
 
     expect(res.status).toBe(201)
     expect(res.body.data.status).toBe('waitlisted')
@@ -83,7 +83,7 @@ describe('POST /api/registrations', () => {
 
     const res = await request(app)
       .post('/api/registrations')
-      .send({ eventId: String(evt._id) })
+      .send({ eventId: String((evt as any)._id) })
     expect(res.status).toBe(401)
   })
 
@@ -95,7 +95,7 @@ describe('POST /api/registrations', () => {
     const res = await request(app)
       .post('/api/registrations')
       .set('Authorization', `Bearer ${token}`)
-      .send({ eventId: String(evt._id) })
+      .send({ eventId: String((evt as any)._id) })
     expect(res.status).toBe(400)
     expect(res.body.message).toMatch(/cancelled/i)
   })
@@ -111,15 +111,15 @@ describe('PATCH /api/registrations/:eventId/cancel', () => {
     await request(app)
       .post('/api/registrations')
       .set('Authorization', `Bearer ${token}`)
-      .send({ eventId: String(evt._id) })
+      .send({ eventId: String((evt as any)._id) })
 
     const res = await request(app)
-      .patch(`/api/registrations/${evt._id}/cancel`)
+      .patch(`/api/registrations/${(evt as any)._id}/cancel`)
       .set('Authorization', `Bearer ${token}`)
 
     expect(res.status).toBe(200)
 
-    const updated = await Event.findById(evt._id)
+    const updated = await Event.findById((evt as any)._id)
     expect(updated?.currentAttendees).toBe(0)
   })
 
@@ -129,7 +129,7 @@ describe('PATCH /api/registrations/:eventId/cancel', () => {
     const { token } = await createUser()
 
     const res = await request(app)
-      .patch(`/api/registrations/${evt._id}/cancel`)
+      .patch(`/api/registrations/${(evt as any)._id}/cancel`)
       .set('Authorization', `Bearer ${token}`)
     expect(res.status).toBe(404)
   })
@@ -146,11 +146,11 @@ describe('GET /api/registrations/my', () => {
     await request(app)
       .post('/api/registrations')
       .set('Authorization', `Bearer ${token}`)
-      .send({ eventId: String(evt1._id) })
+      .send({ eventId: String((evt1 as any)._id) })
     await request(app)
       .post('/api/registrations')
       .set('Authorization', `Bearer ${token}`)
-      .send({ eventId: String(evt2._id) })
+      .send({ eventId: String((evt2 as any)._id) })
 
     const res = await request(app)
       .get('/api/registrations/my')
@@ -177,12 +177,12 @@ describe('DB-REG-005 concurrent registrations', () => {
         request(app)
           .post('/api/registrations')
           .set('Authorization', `Bearer ${token}`)
-          .send({ eventId: String(evt._id) })
+          .send({ eventId: String((evt as any)._id) })
       )
     )
 
-    const updated = await Event.findById(evt._id)
-    const regs = await Registration.countDocuments({ eventId: evt._id, status: 'confirmed' })
+    const updated = await Event.findById((evt as any)._id)
+    const regs = await Registration.countDocuments({ eventId: (evt as any)._id, status: 'confirmed' })
     expect(updated?.currentAttendees).toBe(regs)
   })
 })

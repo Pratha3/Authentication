@@ -3,8 +3,8 @@
  *
  * Channels dispatched on each event:
  *   1. In-app  — MongoDB record + Socket.io real-time push (synchronous)
- *   2. WhatsApp — queued via notification-queue.service (retried on failure)
- *   3. SMS      — queued via notification-queue.service (retried on failure)
+ *   2. SMS      — queued via notification-queue.service (retried on failure)
+ *   3. WhatsApp — optional Meta integration, only when WHATSAPP_ENABLED=true
  *
  * The queue ensures messages survive server crashes and retries automatically
  * with exponential back-off. Registration responses are never blocked.
@@ -14,6 +14,7 @@ import { Notification } from "../models/Notification";
 import { Profile } from "../models/Profile";
 import { emitUserNotification } from "../sockets/io";
 import { enqueueNotification } from "./notification-queue.service";
+import { isWhatsAppEnabled } from "./whatsapp.service";
 import { normalizePhone } from "../utils/phone.utils";
 import type { IEvent } from "../models/Event";
 import type { IRegistration } from "../models/Registration";
@@ -89,20 +90,29 @@ async function enqueueMobile(params: {
     attendeeCount: params.attendeeCount,
   };
 
-  await Promise.allSettled([
-    enqueueNotification({
+  const jobs: Array<Promise<void>> = [];
+
+  if (isWhatsAppEnabled()) {
+    jobs.push(enqueueNotification({
       channel: "whatsapp",
       payload: basePayload,
       userId: params.userId,
       eventId: params.eventId,
-    }),
-    enqueueNotification({
+    }));
+  }
+
+  if (process.env.SMS_ENABLED === "true") {
+    jobs.push(enqueueNotification({
       channel: "sms",
       payload: basePayload,
       userId: params.userId,
       eventId: params.eventId,
-    }),
-  ]);
+    }));
+  }
+
+  if (jobs.length > 0) {
+    await Promise.allSettled(jobs);
+  }
 }
 
 // ── Public notification functions ─────────────────────────────────────────────
@@ -136,8 +146,8 @@ export async function notifyRegistration(
     { eventId, eventSlug: event.slug, ticketCode: registration.ticketCode, status: registration.status }
   );
 
-  // 2. WhatsApp + SMS to attendee (queued with retry)
-  if (rawPhone) {
+  // 2. Mobile notification to confirmed attendee (queued with retry)
+  if (rawPhone && isConfirmed) {
     enqueueMobile({
       rawPhone,
       name: attendeeName,
@@ -164,7 +174,7 @@ export async function notifyRegistration(
     { eventId, eventSlug: event.slug, attendeeUserId: userId }
   );
 
-  // 4. WhatsApp + SMS to organizer (queued with retry)
+  // 4. Mobile notification to organizer (queued with retry)
   if (orgPhone) {
     enqueueMobile({
       rawPhone: orgPhone,
