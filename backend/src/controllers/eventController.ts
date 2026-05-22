@@ -4,7 +4,6 @@ import { Event } from "../models/Event";
 import { Organizer } from "../models/Organizer";
 import { Registration } from "../models/Registration";
 import { Bookmark } from "../models/Bookmark";
-import { generateEventChatReply } from "../services/ai.service";
 import { AuthRequest } from "../middleware/auth";
 import { emitEventStatusUpdate, emitAttendeeUpdate } from "../sockets/io";
 
@@ -224,32 +223,6 @@ export const getEventBySlug = async (req: Request, res: Response): Promise<void>
   } catch (err) {
     console.error("GET EVENT BY SLUG ERROR:", err);
     res.status(500).json({ message: "Failed to fetch event." });
-  }
-};
-
-// ─── POST /api/events/:slug/chat ──────────────────────────────────────────────
-export const eventChat = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { message } = req.body;
-    if (!message) {
-      res.status(400).json({ message: "Message is required." });
-      return;
-    }
-
-    const event = await Event.findOne({ slug: String(req.params.slug) })
-      .populate("venueId", "name city")
-      .lean();
-
-    if (!event) {
-      res.status(404).json({ message: "Event not found" });
-      return;
-    }
-
-    const reply = await generateEventChatReply(event, message);
-    res.json({ reply });
-  } catch (err) {
-    console.error("EVENT CHAT ERROR:", err);
-    res.status(500).json({ message: "Failed to process chat." });
   }
 };
 

@@ -22,6 +22,7 @@ import bookmarkRoutes from './routes/bookmarkRoutes'
 import notificationRoutes from './routes/notificationRoutes'
 import uploadRoutes from './routes/uploadRoutes'
 import testRoutes from './routes/testRoutes'
+import aiRoutes from './routes/aiRoutes'
 import { initSockets } from './sockets/io'
 import { startQueueWorker } from './services/notification-queue.service'
 import { startReminderJob } from './jobs/reminder.job'
@@ -56,6 +57,7 @@ app.use('/api/registrations', registrationRoutes)
 app.use('/api/bookmarks', bookmarkRoutes)
 app.use('/api/notifications', notificationRoutes)
 app.use('/api/upload', uploadRoutes)
+app.use('/api/ai', aiRoutes)
 if (process.env.NODE_ENV !== 'production') {
   app.use('/api/test', testRoutes)
 }

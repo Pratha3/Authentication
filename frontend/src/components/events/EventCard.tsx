@@ -28,8 +28,8 @@ export function EventCard({ event, index = 0, variant = 'default' }: EventCardPr
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05, duration: 0.3 }}
       className={cn(
-        'group relative flex flex-col overflow-hidden rounded-xl border border-border/50 bg-card transition-all duration-300',
-        'hover:border-border hover:shadow-lg hover:shadow-black/5 hover:-translate-y-0.5',
+        'group relative flex flex-col overflow-hidden rounded-xl border border-border/50 bg-card/60 backdrop-blur-sm transition-all duration-300',
+        'hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/10 hover:-translate-y-1',
         variant === 'featured' && 'md:flex-row md:h-64'
       )}
     >

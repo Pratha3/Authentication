@@ -230,6 +230,17 @@ export const eventsApi = {
   delete: (id: string) => request<{ data: null }>(`/events/${id}`, { method: 'DELETE' }),
 }
 
+// ─── AI Chat ──────────────────────────────────────────────────────────────────
+export const aiApi = {
+  globalChat: async (message: string) => {
+    const raw = await request<{ reply: string }>(`/ai/chat`, {
+      method: 'POST',
+      body: JSON.stringify({ message })
+    })
+    return raw
+  }
+}
+
 // ─── Profiles ─────────────────────────────────────────────────────────────────
 export const profilesApi = {
   get: async (userId: string) => {

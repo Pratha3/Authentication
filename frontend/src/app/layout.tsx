@@ -4,6 +4,7 @@ import './globals.css'
 import { Providers } from './providers'
 import { APP_NAME, APP_DESCRIPTION } from '@/constants'
 import { cn } from "@/lib/utils";
+import { GlobalAIChat } from '@/components/shared/GlobalAIChat'
 
 const figtree = Figtree({subsets:['latin'],variable:'--font-sans'});
 
@@ -31,7 +32,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning className={cn("font-sans", figtree.variable)}>
       <body className="font-sans antialiased min-h-screen bg-background text-foreground">
-        <Providers>{children}</Providers>
+        <Providers>
+          {children}
+          <GlobalAIChat />
+        </Providers>
       </body>
     </html>
   )
