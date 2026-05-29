@@ -56,6 +56,7 @@ export function RegistrationModal({ event, open, onClose, onSuccess }: Registrat
   const [isLoading, setIsLoading] = useState(false)
   const [ticketCode, setTicketCode] = useState('')
   const [regStatus, setRegStatus] = useState<'confirmed' | 'waitlisted'>('confirmed')
+  const [submitError, setSubmitError] = useState<string | null>(null)
   const { user, profile } = useAuthStore()
 
   const { register, handleSubmit, formState: { errors }, reset, getValues } = useForm<AttendeeFormData>({
@@ -68,12 +69,13 @@ export function RegistrationModal({ event, open, onClose, onSuccess }: Registrat
 
   const handleClose = () => {
     onClose()
-    setTimeout(() => { setStep('details'); reset() }, 300)
+    setTimeout(() => { setStep('details'); setSubmitError(null); reset() }, 300)
   }
 
   const onSubmit = async (data: AttendeeFormData) => {
     if (!user || !event) return
     setIsLoading(true)
+    setSubmitError(null)
     try {
       const { data: reg, error } = await registerForEvent(event.id, user.id, {
         phone: data.phone,
@@ -82,7 +84,12 @@ export function RegistrationModal({ event, open, onClose, onSuccess }: Registrat
         emergencyContact: data.emergencyContact || undefined,
         answers: { registrationEmail: data.email, registrationName: data.name },
       })
-      if (error || !reg) { toast.error(error ?? 'Registration failed'); return }
+      if (error || !reg) {
+        const message = error ?? 'Registration failed'
+        setSubmitError(message)
+        toast.error(message)
+        return
+      }
       setTicketCode((reg as any).ticketCode ?? '')
       setRegStatus((reg as any).status ?? 'confirmed')
       setStep('success')
@@ -91,7 +98,9 @@ export function RegistrationModal({ event, open, onClose, onSuccess }: Registrat
         current_attendees: (event.current_attendees ?? 0) + ((reg as any).status === 'confirmed' ? 1 : 0),
       })
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Registration failed')
+      const message = err instanceof Error ? err.message : 'Registration failed'
+      setSubmitError(message)
+      toast.error(message)
     } finally {
       setIsLoading(false)
     }
@@ -215,6 +224,12 @@ export function RegistrationModal({ event, open, onClose, onSuccess }: Registrat
                   {/* Scrollable form body */}
                   <div className="px-6 py-4 overflow-y-auto flex-1">
                     <form id="attendee-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+                      {submitError && (
+                        <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                          {submitError}
+                        </div>
+                      )}
+
                       {/* Email */}
                       <div className="space-y-1.5">
                         <Label htmlFor="email" className="flex items-center gap-1.5">

@@ -2,8 +2,9 @@ import express from 'express'
 import cors from 'cors'
 import path from 'path'
 import { createServer } from 'http'
-import dotenv from 'dotenv'
+import { env } from './config/env'
 import { connectDB } from './config/db'
+import { securityHeaders } from './middleware/security'
 // Eagerly register all Mongoose models so .populate() works across any route
 import './models/User'
 import './models/Profile'
@@ -27,14 +28,14 @@ import { initSockets } from './sockets/io'
 import { startQueueWorker } from './services/notification-queue.service'
 import { startReminderJob } from './jobs/reminder.job'
 
-dotenv.config()
-
 const app = express()
+
+app.use(securityHeaders)
 
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5173',
-  process.env.CLIENT_URL,
+  env.CLIENT_URL,
 ].filter(Boolean) as string[]
 
 app.use(cors({
@@ -58,7 +59,7 @@ app.use('/api/bookmarks', bookmarkRoutes)
 app.use('/api/notifications', notificationRoutes)
 app.use('/api/upload', uploadRoutes)
 app.use('/api/ai', aiRoutes)
-if (process.env.NODE_ENV !== 'production') {
+if (env.NODE_ENV !== 'production') {
   app.use('/api/test', testRoutes)
 }
 
@@ -81,10 +82,9 @@ connectDB().then(() => {
   startReminderJob()
 })
 
-if (process.env.NODE_ENV !== 'test') {
-  const PORT = Number(process.env.PORT) || 5000
-  httpServer.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`)
+if (env.NODE_ENV !== 'test') {
+  httpServer.listen(env.PORT, () => {
+    console.log(`Server running on http://localhost:${env.PORT}`)
   })
 }
 

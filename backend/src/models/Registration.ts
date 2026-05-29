@@ -29,11 +29,11 @@ export interface IRegistration extends Document {
 
 const attendeeDetailsSchema = new Schema<IAttendeeDetails>(
   {
-    phone: { type: String, default: null },
-    dietaryRequirements: { type: String, default: null },
-    tShirtSize: { type: String, default: null },
-    emergencyContact: { type: String, default: null },
-    specialRequests: { type: String, default: null },
+    phone: { type: String, trim: true, default: null },
+    dietaryRequirements: { type: String, trim: true, maxlength: 500, default: null },
+    tShirtSize: { type: String, trim: true, maxlength: 30, default: null },
+    emergencyContact: { type: String, trim: true, maxlength: 120, default: null },
+    specialRequests: { type: String, trim: true, maxlength: 1000, default: null },
     answers: { type: Schema.Types.Mixed, default: {} },
   },
   { _id: false }
@@ -64,7 +64,7 @@ const registrationSchema = new Schema<IRegistration>(
 
 registrationSchema.index({ eventId: 1, userId: 1 }, { unique: true });
 registrationSchema.index({ userId: 1, status: 1 });
-registrationSchema.index({ eventId: 1, status: 1 });
+registrationSchema.index({ eventId: 1, status: 1, registeredAt: 1 });
 registrationSchema.index({ ticketCode: 1 }, { unique: true });
 
 export const Registration = mongoose.model<IRegistration>("Registration", registrationSchema);

@@ -29,6 +29,15 @@ function fmtDate(d: Date | string): string {
   });
 }
 
+function idString(value: unknown): string {
+  if (value && typeof value === "object") {
+    const maybeDoc = value as { _id?: unknown; id?: unknown };
+    if (maybeDoc._id) return String(maybeDoc._id);
+    if (maybeDoc.id) return String(maybeDoc.id);
+  }
+  return String(value);
+}
+
 async function getProfile(userId: string) {
   try { return await Profile.findOne({ userId }).lean(); }
   catch { return null; }
@@ -122,8 +131,8 @@ export async function notifyRegistration(
   event: IEvent,
   organizer: IOrganizer
 ): Promise<void> {
-  const userId   = String(registration.userId);
-  const eventId  = String(event._id);
+  const userId   = idString(registration.userId);
+  const eventId  = idString(event._id);
   const eventUrl = `${CLIENT_URL}/events/${event.slug}`;
   const dashUrl  = `${CLIENT_URL}/organizer/dashboard`;
 
@@ -162,7 +171,7 @@ export async function notifyRegistration(
   }
 
   // 3. In-app notification to organizer
-  const orgUserId  = String(organizer.userId);
+  const orgUserId  = idString(organizer.userId);
   const orgProfile = await getProfile(orgUserId);
   const orgPhone   = orgProfile?.phone ?? "";
 
@@ -193,8 +202,8 @@ export async function notifyCancellation(
   registration: IRegistration,
   event: IEvent
 ): Promise<void> {
-  const userId   = String(registration.userId);
-  const eventId  = String(event._id);
+  const userId   = idString(registration.userId);
+  const eventId  = idString(event._id);
   const eventUrl = `${CLIENT_URL}/events/${event.slug}`;
   const details  = (registration as any).attendeeDetails ?? {};
   const profile  = await getProfile(userId);
@@ -226,7 +235,7 @@ export async function notifyEventStatusUpdate(
   event: IEvent,
   registeredUserIds: string[]
 ): Promise<void> {
-  const eventId  = String(event._id);
+  const eventId  = idString(event._id);
   const eventUrl = `${CLIENT_URL}/events/${event.slug}`;
 
   const msgs: Record<string, { title: string; body: string }> = {
@@ -269,7 +278,7 @@ export async function sendEventReminders(
   registrations: Array<{ userId: string; ticketCode: string }>,
   hoursUntil: number
 ): Promise<void> {
-  const eventId  = String(event._id);
+  const eventId  = idString(event._id);
   const eventUrl = `${CLIENT_URL}/events/${event.slug}`;
 
   await Promise.allSettled(

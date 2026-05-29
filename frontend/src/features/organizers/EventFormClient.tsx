@@ -59,6 +59,7 @@ export function EventFormClient({ mode, existing }: Props) {
   const [isLoading, setIsLoading] = useState(false)
   const [bannerFile, setBannerFile] = useState<File | null>(null)
   const [bannerPreview, setBannerPreview] = useState<string>(existing?.banner_url ?? '')
+  const [formError, setFormError] = useState<string | null>(null)
 
   const { register, handleSubmit, control, watch, formState: { errors } } = useForm<EventFormInput>({
     resolver: zodResolver(eventSchema) as Resolver<EventFormInput>,
@@ -91,6 +92,11 @@ export function EventFormClient({ mode, existing }: Props) {
     const file = e.target.files?.[0]
     if (!file) return
     if (file.size > 5 * 1024 * 1024) { toast.error('Image must be under 5MB'); return }
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Use a JPG, PNG, WEBP, or GIF image')
+      return
+    }
     setBannerFile(file)
     setBannerPreview(URL.createObjectURL(file))
   }
@@ -98,6 +104,7 @@ export function EventFormClient({ mode, existing }: Props) {
   const onSubmit = async (values: EventFormInput) => {
     if (!user) return
     setIsLoading(true)
+    setFormError(null)
     try {
       // Verify organizer profile exists
       const { data: org } = await fetchOrganizerProfile(user.id)
@@ -139,7 +146,6 @@ export function EventFormClient({ mode, existing }: Props) {
           ? slugify(values.title) + '-' + Date.now()
           : existing!.slug,
         status: existing?.status ?? 'upcoming',
-        isFeatured: existing?.is_featured ?? false,
         currency: 'INR',
         timezone: 'Asia/Kolkata',
       }
@@ -149,6 +155,7 @@ export function EventFormClient({ mode, existing }: Props) {
         : await updateEvent(existing!.id, payload)
 
       if (result.error) {
+        setFormError(result.error)
         toast.error(result.error)
         return
       }
@@ -157,7 +164,9 @@ export function EventFormClient({ mode, existing }: Props) {
       toast.success(mode === 'create' ? 'Event created successfully!' : 'Event updated successfully!')
       router.push(ROUTES.ORGANIZER.DASHBOARD)
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Something went wrong')
+      const message = err instanceof Error ? err.message : 'Something went wrong'
+      setFormError(message)
+      toast.error(message)
     } finally {
       setIsLoading(false)
     }
@@ -169,6 +178,12 @@ export function EventFormClient({ mode, existing }: Props) {
         <h1 className="text-2xl font-bold">{mode === 'create' ? 'Create New Event' : 'Edit Event'}</h1>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          {formError && (
+            <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {formError}
+            </div>
+          )}
+
           {/* Banner upload */}
           <div className="space-y-2">
             <Label>Event Banner</Label>
@@ -315,6 +330,7 @@ export function EventFormClient({ mode, existing }: Props) {
                 <span className="text-muted-foreground text-xs">(blank = unlimited)</span>
               </Label>
               <Input type="number" min={1} placeholder="100" {...register('capacity')} />
+              {errors.capacity && <p className="text-sm text-destructive">{errors.capacity.message}</p>}
             </div>
           </div>
 

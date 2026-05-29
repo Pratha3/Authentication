@@ -30,6 +30,35 @@ export function clearToken(): void {
   localStorage.removeItem('token')
 }
 
+type ApiErrorBody = {
+  message?: string
+  error?: string | { message?: string }
+}
+
+async function parseJsonSafely(res: Response): Promise<unknown> {
+  const text = await res.text()
+  if (!text) return null
+
+  try {
+    return JSON.parse(text)
+  } catch {
+    return { message: text }
+  }
+}
+
+function getErrorMessage(data: unknown, fallback: string): string {
+  if (!data || typeof data !== 'object') return fallback
+
+  const body = data as ApiErrorBody
+  if (typeof body.message === 'string' && body.message.trim()) return body.message
+  if (typeof body.error === 'string' && body.error.trim()) return body.error
+  if (body.error && typeof body.error === 'object' && typeof body.error.message === 'string') {
+    return body.error.message
+  }
+
+  return fallback
+}
+
 // ─── Normalize MongoDB _id / camelCase → frontend snake_case ─────────────────
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function normalizeProfile(raw: any) {
@@ -137,8 +166,8 @@ export async function request<T>(
   if (token) headers['Authorization'] = `Bearer ${token}`
 
   const res = await fetch(`${BASE_URL}${endpoint}`, { ...options, headers })
-  const data = await res.json()
-  if (!res.ok) throw new Error(data.message || 'Something went wrong.')
+  const data = await parseJsonSafely(res)
+  if (!res.ok) throw new Error(getErrorMessage(data, 'Something went wrong.'))
   return data as T
 }
 
@@ -152,9 +181,9 @@ export async function uploadRequest(
   if (token) headers['Authorization'] = `Bearer ${token}`
 
   const res = await fetch(`${BASE_URL}${endpoint}`, { method: 'POST', headers, body: formData })
-  const data = await res.json()
-  if (!res.ok) return { url: '', error: data.message || 'Upload failed.' }
-  return data
+  const data = await parseJsonSafely(res)
+  if (!res.ok) return { url: '', error: getErrorMessage(data, 'Upload failed.') }
+  return data as { url: string; error: string | null }
 }
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────

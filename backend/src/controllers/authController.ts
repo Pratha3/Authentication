@@ -6,12 +6,11 @@ import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
 import { AuthRequest } from "../middleware/auth";
+import { env } from "../config/env";
 
 // ─── Helper: generate signed JWT ────────────────────────────────────────────
 const generateToken = (userId: string): string => {
-  const secret = process.env.JWT_SECRET!;
-  const expiresIn = process.env.JWT_EXPIRES_IN || "7d";
-  return jwt.sign({ userId }, secret, { expiresIn } as jwt.SignOptions);
+  return jwt.sign({ userId }, env.JWT_SECRET, { expiresIn: env.JWT_EXPIRES_IN } as jwt.SignOptions);
 };
 
 // ─── Helper: build nodemailer transporter ───────────────────────────────────
@@ -19,8 +18,8 @@ const createTransporter = () =>
   nodemailer.createTransport({
     service: "gmail",
     auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
+      user: env.EMAIL_USER ?? undefined,
+      pass: env.EMAIL_PASS ?? undefined,
     },
   });
 
@@ -137,12 +136,12 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
     user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
     await user.save();
 
-    const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
+    const clientUrl = env.CLIENT_URL;
     const resetUrl = `${clientUrl}/reset-password/${resetToken}`;
 
     const transporter = createTransporter();
     await transporter.sendMail({
-      from: `"Auth App" <${process.env.EMAIL_USER}>`,
+      from: `"Auth App" <${env.EMAIL_USER}>`,
       to: user.email,
       subject: "Password Reset Request",
       html: `

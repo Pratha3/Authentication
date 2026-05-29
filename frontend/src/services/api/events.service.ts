@@ -20,7 +20,6 @@ export type EventPayload = {
   bannerUrl: string | null
   slug: string
   status: Event['status']
-  isFeatured: boolean
   currency: string
   timezone: string
 }

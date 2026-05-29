@@ -9,6 +9,41 @@ import { emitAttendeeUpdate, emitOrganizerDashboardUpdate } from "../sockets/io"
 import { notifyRegistration, notifyCancellation } from "../services/notification.service";
 import { enqueueNotification } from "../services/notification-queue.service";
 import { normalizePhone } from "../utils/phone.utils";
+import { env } from "../config/env";
+
+type OptionalSession = mongoose.ClientSession | null;
+
+function isStandaloneTransactionError(err: unknown): boolean {
+  const error = err as { code?: number; codeName?: string; message?: string };
+  return (
+    error.code === 20 ||
+    error.codeName === "IllegalOperation" ||
+    Boolean(error.message?.includes("Transaction numbers are only allowed"))
+  );
+}
+
+async function runWithTransactionFallback<T>(
+  operation: (session: OptionalSession) => Promise<T>
+): Promise<T> {
+  const session = await mongoose.startSession();
+  try {
+    try {
+      let result: T | undefined;
+      await session.withTransaction(async () => {
+        result = await operation(session);
+      });
+      return result as T;
+    } catch (err) {
+      if (isStandaloneTransactionError(err) && env.NODE_ENV !== "production") {
+        console.warn("[DB] Transactions are unavailable; retrying write without a session.");
+        return operation(null);
+      }
+      throw err;
+    }
+  } finally {
+    await session.endSession();
+  }
+}
 
 // ─── POST /api/registrations ─────────────────────────────────────────────
 export const registerForEvent = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -20,50 +55,65 @@ export const registerForEvent = async (req: AuthRequest, res: Response): Promise
       return;
     }
 
-    const event = await Event.findById(eventId);
-    if (!event) { res.status(404).json({ message: "Event not found." }); return; }
-    if (event.status === "cancelled") { res.status(400).json({ message: "Event is cancelled." }); return; }
-    if (event.registrationDeadline && event.registrationDeadline < new Date()) {
-      res.status(400).json({ message: "Registration deadline has passed." });
-      return;
-    }
+    let event: any;
+    let registration: any;
+    let status = "waitlisted" as "confirmed" | "waitlisted";
+    let attendeeCount = 0;
+    let eventCapacity: number | null = null;
+    let eventStatus = "";
 
-    const existing = await Registration.findOne({ eventId, userId: req.userId });
-    if (existing && existing.status !== "cancelled") {
-      res.status(409).json({ message: "Already registered for this event." });
-      return;
-    }
-
-    const isFull = Boolean(event.capacity && event.currentAttendees >= event.capacity);
-    const status: "confirmed" | "waitlisted" = isFull ? "waitlisted" : "confirmed";
-
-    let registration;
-    if (existing) {
-      existing.status = status;
-      existing.cancelledAt = null;
-      existing.attendeeDetails = attendeeDetails;
-      await existing.save();
-      registration = existing;
-    } else {
-      registration = await Registration.create({
-        eventId,
-        userId: req.userId,
-        status,
-        attendeeDetails,
-      });
-    }
-
-    // Update attendee count + emit real-time update
-    if (status === "confirmed") {
-      const updated = await Event.findByIdAndUpdate(
-        eventId,
-        { $inc: { currentAttendees: 1 } },
-        { new: true }
-      );
-      if (updated) {
-        emitAttendeeUpdate(String(eventId), updated.currentAttendees, updated.capacity, updated.status);
+    await runWithTransactionFallback(async (session) => {
+      event = await Event.findById(eventId).session(session);
+      if (!event) throw Object.assign(new Error("Event not found."), { statusCode: 404 });
+      if (event.status === "cancelled") throw Object.assign(new Error("Event is cancelled."), { statusCode: 400 });
+      if (event.registrationDeadline && event.registrationDeadline < new Date()) {
+        throw Object.assign(new Error("Registration deadline has passed."), { statusCode: 400 });
       }
-    }
+
+      const existing = await Registration.findOne({ eventId, userId: req.userId }).session(session);
+      if (existing && existing.status !== "cancelled") {
+        throw Object.assign(new Error("Already registered for this event."), { statusCode: 409 });
+      }
+
+      const confirmedEvent = await Event.findOneAndUpdate(
+        {
+          _id: eventId,
+          $or: [
+            { capacity: null },
+            { capacity: { $exists: false } },
+            { $expr: { $lt: ["$currentAttendees", "$capacity"] } },
+          ],
+        },
+        { $inc: { currentAttendees: 1 } },
+        { new: true, ...(session ? { session } : {}) }
+      );
+
+      status = confirmedEvent ? "confirmed" : "waitlisted";
+      const latestEvent = confirmedEvent ?? event;
+      attendeeCount = latestEvent.currentAttendees;
+      eventCapacity = latestEvent.capacity;
+      eventStatus = latestEvent.status;
+
+      if (existing) {
+        existing.status = status;
+        existing.cancelledAt = null;
+        existing.attendeeDetails = attendeeDetails;
+        await existing.save({ session });
+        registration = existing;
+      } else {
+        [registration] = await Registration.create(
+          [{
+            eventId,
+            userId: req.userId,
+            status,
+            attendeeDetails,
+          }],
+          session ? { session } : undefined
+        );
+      }
+    });
+
+    emitAttendeeUpdate(String(eventId), attendeeCount, eventCapacity, eventStatus);
 
     // Populate for response
     await registration.populate([
@@ -85,7 +135,7 @@ export const registerForEvent = async (req: AuthRequest, res: Response): Promise
         type: "new_registration",
         eventId: String(eventId),
         attendeeName: attendeeProfile?.fullName ?? attendeeProfile?.email ?? "Someone",
-        attendeeCount: event.currentAttendees + (status === "confirmed" ? 1 : 0),
+        attendeeCount,
         status,
         registrationId: String(registration._id),
       });
@@ -107,6 +157,10 @@ export const registerForEvent = async (req: AuthRequest, res: Response): Promise
     });
   } catch (err: any) {
     console.error("REGISTER ERROR:", err);
+    if (err.statusCode) {
+      res.status(err.statusCode).json({ message: err.message });
+      return;
+    }
     if (err.code === 11000) {
       res.status(409).json({ message: "Already registered for this event." });
       return;
@@ -119,43 +173,64 @@ export const registerForEvent = async (req: AuthRequest, res: Response): Promise
 export const cancelRegistration = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const eventId = String(req.params.eventId);
-    const registration = await Registration.findOne({ eventId, userId: req.userId });
-    if (!registration) { res.status(404).json({ message: "Registration not found." }); return; }
-    if (registration.status === "cancelled") { res.status(400).json({ message: "Already cancelled." }); return; }
+    if (!mongoose.isValidObjectId(eventId)) {
+      res.status(400).json({ message: "Invalid event ID." });
+      return;
+    }
 
-    const wasConfirmed = registration.status === "confirmed";
-    registration.status = "cancelled";
-    registration.cancelledAt = new Date();
-    await registration.save();
+    let registration: any;
+    let waitlisted: any = null;
+    let updatedEvent: any = null;
+    let wasConfirmed = false;
 
-    if (wasConfirmed) {
-      const updated = await Event.findByIdAndUpdate(
-        eventId,
-        { $inc: { currentAttendees: -1 } },
-        { new: true }
-      );
-      if (updated) emitAttendeeUpdate(eventId, updated.currentAttendees, updated.capacity, updated.status);
+    await runWithTransactionFallback(async (session) => {
+      registration = await Registration.findOne({ eventId, userId: req.userId }).session(session);
+      if (!registration) throw Object.assign(new Error("Registration not found."), { statusCode: 404 });
+      if (registration.status === "cancelled") throw Object.assign(new Error("Already cancelled."), { statusCode: 400 });
 
-      // Promote first waitlisted user if any (Atomically)
-      const waitlisted = await Registration.findOneAndUpdate(
-        { eventId, status: "waitlisted" },
-        { $set: { status: "confirmed" } },
-        { sort: { registeredAt: 1 }, new: true }
-      );
-      if (waitlisted) {
-        const promotedEvent = await Event.findByIdAndUpdate(eventId, { $inc: { currentAttendees: 1 } }, { new: true });
-        if (promotedEvent) emitAttendeeUpdate(eventId, promotedEvent.currentAttendees, promotedEvent.capacity, promotedEvent.status);
+      wasConfirmed = registration.status === "confirmed";
+      registration.status = "cancelled";
+      registration.cancelledAt = new Date();
+      await registration.save({ session });
 
-        // Notify promoted user via all channels
-        const promotedProfile = await Profile.findOne({ userId: waitlisted.userId }).lean();
-        const ev = await Event.findById(eventId).lean();
+      if (wasConfirmed) {
+        updatedEvent = await Event.findByIdAndUpdate(
+          eventId,
+          { $inc: { currentAttendees: -1 } },
+          { new: true, ...(session ? { session } : {}) }
+        );
 
-        if (ev && promotedProfile?.email) {
-          const { sendEmail, buildRegistrationEmail } = await import("../services/email.service");
-          const attendeeName = promotedProfile.fullName ?? promotedProfile.email.split("@")[0];
-          sendEmail({
+        waitlisted = await Registration.findOneAndUpdate(
+          { eventId, status: "waitlisted" },
+          { $set: { status: "confirmed" } },
+          { sort: { registeredAt: 1 }, new: true, ...(session ? { session } : {}) }
+        );
+
+        if (waitlisted) {
+          updatedEvent = await Event.findByIdAndUpdate(
+            eventId,
+            { $inc: { currentAttendees: 1 } },
+            { new: true, ...(session ? { session } : {}) }
+          );
+        }
+      }
+    });
+
+    if (wasConfirmed && updatedEvent) {
+      emitAttendeeUpdate(eventId, updatedEvent.currentAttendees, updatedEvent.capacity, updatedEvent.status);
+    }
+
+    if (waitlisted) {
+      // Notify promoted user via all channels
+      const promotedProfile = await Profile.findOne({ userId: waitlisted.userId }).lean();
+      const ev = await Event.findById(eventId).lean();
+
+      if (ev && promotedProfile?.email) {
+        const { sendEmail, buildRegistrationEmail } = await import("../services/email.service");
+        const attendeeName = promotedProfile.fullName ?? promotedProfile.email.split("@")[0];
+        sendEmail({
             to: promotedProfile.email,
-            subject: `✅ You're now confirmed for ${ev.title}!`,
+            subject: `You're now confirmed for ${ev.title}!`,
             html: buildRegistrationEmail({
               attendeeName,
               eventTitle: ev.title,
@@ -163,31 +238,30 @@ export const cancelRegistration = async (req: AuthRequest, res: Response): Promi
               eventLocation: ev.city ?? "TBD",
               ticketCode: waitlisted.ticketCode,
               status: "confirmed",
-              eventUrl: `${process.env.CLIENT_URL}/events/${ev.slug}`,
+              eventUrl: `${env.CLIENT_URL}/events/${ev.slug}`,
               organizerName: "Organizer",
               isOnline: ev.isOnline,
               onlineUrl: ev.onlineUrl,
             }),
-          }).catch(() => {});
+        }).catch(() => {});
 
-          // WhatsApp + SMS for promoted user (queued with retry)
-          const rawPhone = promotedProfile.phone ?? "";
-          const phone = normalizePhone(rawPhone);
-          if (phone) {
-            const mobilePayload = {
-              to: phone,
-              type: "confirmation" as const,
-              attendeeName,
-              eventTitle: ev.title,
-              ticketCode: waitlisted.ticketCode,
-              eventDate: new Date(ev.startDate).toLocaleString("en-IN"),
-              eventUrl: `${process.env.CLIENT_URL}/events/${ev.slug}`,
-            };
-            Promise.allSettled([
-              enqueueNotification({ channel: "whatsapp", payload: mobilePayload, userId: String(waitlisted.userId), eventId }),
-              enqueueNotification({ channel: "sms",      payload: mobilePayload, userId: String(waitlisted.userId), eventId }),
-            ]).catch(() => {});
-          }
+        // WhatsApp + SMS for promoted user (queued with retry)
+        const rawPhone = promotedProfile.phone ?? "";
+        const phone = normalizePhone(rawPhone);
+        if (phone) {
+          const mobilePayload = {
+            to: phone,
+            type: "confirmation" as const,
+            attendeeName,
+            eventTitle: ev.title,
+            ticketCode: waitlisted.ticketCode,
+            eventDate: new Date(ev.startDate).toLocaleString("en-IN"),
+            eventUrl: `${env.CLIENT_URL}/events/${ev.slug}`,
+          };
+          Promise.allSettled([
+            enqueueNotification({ channel: "whatsapp", payload: mobilePayload, userId: String(waitlisted.userId), eventId }),
+            enqueueNotification({ channel: "sms",      payload: mobilePayload, userId: String(waitlisted.userId), eventId }),
+          ]).catch(() => {});
         }
       }
     }
@@ -199,6 +273,10 @@ export const cancelRegistration = async (req: AuthRequest, res: Response): Promi
     res.json({ data: null, error: null, message: "Registration cancelled." });
   } catch (err) {
     console.error("CANCEL REGISTRATION ERROR:", err);
+    if ((err as any).statusCode) {
+      res.status((err as any).statusCode).json({ message: (err as Error).message });
+      return;
+    }
     res.status(500).json({ message: "Failed to cancel registration." });
   }
 };

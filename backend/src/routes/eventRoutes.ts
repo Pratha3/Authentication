@@ -4,6 +4,7 @@ import {
   getEventBySlug, createEvent, updateEvent, deleteEvent, getOrganizerEvents,
 } from "../controllers/eventController";
 import { protect, optionalProtect } from "../middleware/auth";
+import { validateCreateEvent, validateUpdateEvent } from "../middleware/requestValidation";
 
 const router = Router();
 
@@ -14,8 +15,8 @@ router.get("/nearby", getNearbyEvents);
 router.get("/organizer/:organizerId", getOrganizerEvents);
 
 // ── CRUD ──────────────────────────────────────────────────────────────────────
-router.post("/", protect, createEvent);
-router.patch("/:id", protect, updateEvent);
+router.post("/", protect, validateCreateEvent, createEvent);
+router.patch("/:id", protect, validateUpdateEvent, updateEvent);
 router.delete("/:id", protect, deleteEvent);
 
 // ── Dynamic slug — MUST be last ───────────────────────────────────────────────

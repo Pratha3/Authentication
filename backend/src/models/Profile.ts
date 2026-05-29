@@ -26,19 +26,36 @@ export interface IProfile extends Document {
 const profileSchema = new Schema<IProfile>(
   {
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true, unique: true },
-    email: { type: String, required: true, lowercase: true, trim: true },
-    fullName: { type: String, trim: true, default: null },
+    email: {
+      type: String,
+      required: true,
+      lowercase: true,
+      trim: true,
+      match: [/^\S+@\S+\.\S+$/, "Please provide a valid email address"],
+    },
+    fullName: { type: String, trim: true, maxlength: 120, default: null },
     avatarUrl: { type: String, default: null },
     role: { type: String, enum: ["user", "organizer", "admin"], default: "user" },
-    bio: { type: String, default: null },
-    phone: { type: String, default: null },
-    location: { type: String, default: null },
-    latitude: { type: Number, default: null },
-    longitude: { type: Number, default: null },
-    interests: [{ type: String }],
+    bio: { type: String, maxlength: 1000, default: null },
+    phone: { type: String, trim: true, default: null },
+    location: { type: String, trim: true, default: null },
+    latitude: { type: Number, default: null, min: -90, max: 90 },
+    longitude: { type: Number, default: null, min: -180, max: 180 },
+    interests: [{
+      type: String,
+      enum: [
+        "marathon", "meetup", "cafe", "club", "community",
+        "music", "sports", "tech", "food", "art",
+        "wellness", "business", "outdoor", "workshop", "charity", "other",
+      ],
+    }],
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true }
 );
+
+profileSchema.index({ email: 1 });
+profileSchema.index({ role: 1, isActive: 1 });
+profileSchema.index({ interests: 1 });
 
 export const Profile = mongoose.model<IProfile>("Profile", profileSchema);
