@@ -2,7 +2,6 @@
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
@@ -47,11 +46,7 @@ export function LoginForm() {
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="w-full max-w-md space-y-6"
-    >
+    <div className="w-full max-w-md space-y-6">
       <div className="space-y-2 text-center">
         <h1 className="text-3xl font-bold tracking-tight">Welcome back</h1>
         <p className="text-muted-foreground">Sign in to discover amazing events</p>
@@ -97,6 +92,6 @@ export function LoginForm() {
         Don&apos;t have an account?{' '}
         <Link href={ROUTES.SIGNUP} className="text-primary hover:underline font-medium">Sign up</Link>
       </p>
-    </motion.div>
+    </div>
   )
 }

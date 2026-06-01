@@ -16,7 +16,7 @@ export function CategoryGrid() {
   }
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-3">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8">
       {EVENT_CATEGORIES.map((cat, i) => (
         <motion.button
           key={cat.value}
@@ -25,13 +25,13 @@ export function CategoryGrid() {
           transition={{ delay: i * 0.03 }}
           onClick={() => handleCategoryClick(cat.value)}
           className={cn(
-            'flex flex-col items-center gap-2 rounded-xl border p-4 text-center transition-all',
-            'hover:-translate-y-0.5 hover:shadow-md cursor-pointer',
+            'group flex min-h-28 flex-col items-center justify-center gap-3 rounded-lg border p-4 text-center shadow-sm transition-all',
+            'hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer',
             cat.color
           )}
         >
-          <span className="text-2xl">{cat.emoji}</span>
-          <span className="text-xs font-medium leading-tight">{cat.label}</span>
+          <span className="text-3xl transition-transform group-hover:scale-110">{cat.emoji}</span>
+          <span className="text-xs font-semibold leading-tight">{cat.label}</span>
         </motion.button>
       ))}
     </div>

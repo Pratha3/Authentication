@@ -22,6 +22,13 @@ import { slugify } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import type { Event } from '@/types'
 
+function currentDateTimeLocal(): string {
+  const now = new Date()
+  now.setSeconds(0, 0)
+  const offsetMs = now.getTimezoneOffset() * 60 * 1000
+  return new Date(now.getTime() - offsetMs).toISOString().slice(0, 16)
+}
+
 const eventSchema = z.object({
   title: z.string().min(5, 'Title must be at least 5 characters'),
   description: z.string().min(20, 'Description must be at least 20 characters'),
@@ -43,6 +50,13 @@ const eventSchema = z.object({
 ).refine(
   (d) => new Date(d.end_date) >= new Date(d.start_date),
   { message: 'End date must be after or equal to start date', path: ['end_date'] }
+).refine(
+  (d) => {
+    const now = new Date()
+    now.setSeconds(0, 0)
+    return new Date(d.start_date) >= now
+  },
+  { message: 'Start date cannot be in the past', path: ['start_date'] }
 )
 
 type EventFormInput = z.infer<typeof eventSchema>
@@ -87,6 +101,8 @@ export function EventFormClient({ mode, existing }: Props) {
 
   const isOnline = watch('is_online')
   const isFree = watch('is_free')
+  const startDate = watch('start_date')
+  const minDateTime = currentDateTimeLocal()
 
   const handleBannerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -251,12 +267,12 @@ export function EventFormClient({ mode, existing }: Props) {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Start Date & Time *</Label>
-              <Input type="datetime-local" {...register('start_date')} />
+              <Input type="datetime-local" min={minDateTime} {...register('start_date')} />
               {errors.start_date && <p className="text-sm text-destructive">{errors.start_date.message}</p>}
             </div>
             <div className="space-y-2">
               <Label>End Date & Time *</Label>
-              <Input type="datetime-local" {...register('end_date')} />
+              <Input type="datetime-local" min={startDate || minDateTime} {...register('end_date')} />
               {errors.end_date && <p className="text-sm text-destructive">{errors.end_date.message}</p>}
             </div>
           </div>

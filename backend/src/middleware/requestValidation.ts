@@ -59,6 +59,12 @@ function isNumberInRange(value: unknown, min: number, max: number): boolean {
   return typeof value === "number" && Number.isFinite(value) && value >= min && value <= max;
 }
 
+function currentMinute(): Date {
+  const now = new Date();
+  now.setSeconds(0, 0);
+  return now;
+}
+
 function validateEventPayload(body: Record<string, unknown>, requireCoreFields: boolean): string | null {
   if (requireCoreFields) {
     if (typeof body.title !== "string" || body.title.trim().length < 3) return "Title must be at least 3 characters.";
@@ -76,6 +82,9 @@ function validateEventPayload(body: Record<string, unknown>, requireCoreFields: 
   }
   if (body.startDate !== undefined && !isValidDate(body.startDate)) return "Invalid startDate.";
   if (body.endDate !== undefined && !isValidDate(body.endDate)) return "Invalid endDate.";
+  if (isValidDate(body.startDate) && new Date(String(body.startDate)) < currentMinute()) {
+    return "Start date cannot be in the past.";
+  }
 
   if (isValidDate(body.startDate) && isValidDate(body.endDate) && new Date(String(body.endDate)) < new Date(String(body.startDate))) {
     return "End date must be after or equal to start date.";

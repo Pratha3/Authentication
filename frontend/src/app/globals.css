@@ -82,6 +82,7 @@
 
   html {
     scroll-behavior: smooth;
+    scroll-padding-top: 5rem;
   }
 
   body {
@@ -131,6 +132,39 @@
 /* ─── Utility keyframes & animations ─────────────────────────────────────────── */
 @layer utilities {
   .text-balance { text-wrap: balance; }
+
+  .parallax-scene {
+    perspective: 1px;
+    transform-style: preserve-3d;
+  }
+
+  .parallax-layer {
+    will-change: transform;
+    transition: transform 120ms linear;
+  }
+
+  .parallax-slow {
+    transform: translate3d(0, calc(var(--scroll-y, 0px) * -0.08), 0);
+  }
+
+  .parallax-medium {
+    transform: translate3d(0, calc(var(--scroll-y, 0px) * -0.04), 0);
+  }
+
+  .parallax-reverse {
+    transform: translate3d(0, calc(var(--scroll-y, 0px) * 0.035), 0);
+  }
+
+  .section-reveal {
+    animation: sectionReveal 0.7s ease-out both;
+  }
+
+  @supports (animation-timeline: view()) {
+    .section-reveal {
+      animation-timeline: view();
+      animation-range: entry 8% cover 32%;
+    }
+  }
 
   /* animate-in / animate-out utility (replaces tw-animate-css for v3) */
   .animate-in {
@@ -204,6 +238,10 @@
     0%, 100% { opacity: 1; }
     50%       { opacity: 0.6; }
   }
+  @keyframes sectionReveal {
+    from { opacity: 0.55; transform: translateY(28px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
 
   .shimmer {
     background: linear-gradient(
@@ -214,5 +252,18 @@
     );
     background-size: 200% 100%;
     animation: shimmer 1.5s infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    .parallax-layer,
+    .section-reveal {
+      animation: none;
+      transform: none;
+      transition: none;
+    }
   }
 }
