@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { fetchEventBySlug } from '@/services/api/events.service'
 import { cancelRegistration } from '@/services/api/registrations.service'
 import { useAuthStore } from '@/store/auth.store'
@@ -30,6 +31,7 @@ function RealtimeEventWrapper({ eventId }: { eventId: string }) {
 }
 
 export function EventDetailClient({ slug }: Props) {
+  const router = useRouter()
   const [event, setEvent] = useState<Event | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isCancelling, setIsCancelling] = useState(false)
@@ -143,7 +145,7 @@ export function EventDetailClient({ slug }: Props) {
   const canRegister = !isClosed && !isFull
 
   return (
-    <main className="container py-6 max-w-5xl">
+    <main className="container py-6 pb-24 lg:pb-8 max-w-5xl">
       {event.id && <RealtimeEventWrapper eventId={event.id} />}
 
       <RegistrationModal
@@ -285,7 +287,7 @@ export function EventDetailClient({ slug }: Props) {
                   onClick={() => {
                     if (!user) {
                       toast.error('Please sign in to register', {
-                        action: { label: 'Sign in', onClick: () => window.location.href = '/login' },
+                        action: { label: 'Sign in', onClick: () => router.push(ROUTES.LOGIN) },
                       })
                       return
                     }
@@ -327,6 +329,65 @@ export function EventDetailClient({ slug }: Props) {
           </div>
         </div>
       </motion.div>
+
+      {/* Mobile Sticky CTA Bar */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-background/85 backdrop-blur-xl border-t border-border/50 px-4 py-3.5 flex items-center justify-between shadow-2xl safe-bottom animate-in fade-in slide-in-from-bottom-2">
+        <div className="flex flex-col gap-0.5">
+          <span className="text-sm font-extrabold text-foreground">
+            {event.is_free ? <span className="text-green-400">Free</span> : formatCurrency(event.price, event.currency)}
+          </span>
+          {event.capacity && (
+            <span className="text-[10px] text-muted-foreground font-medium">
+              {Math.max(0, event.capacity - event.current_attendees)} spots left
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {isOrganizer ? (
+            <Button asChild size="sm" className="gap-1.5 shadow-md shadow-primary/10 hover:shadow-glow-primary font-semibold">
+              <Link href={ROUTES.ORGANIZER.DASHBOARD}>
+                <LayoutDashboard className="h-3.5 w-3.5" />
+                Manage
+              </Link>
+            </Button>
+          ) : event.is_registered ? (
+            <div className="flex items-center gap-2">
+              <span className="flex items-center gap-1 text-xs text-green-400 font-semibold mr-1">
+                <CheckCircle2 className="h-3.5 w-3.5" /> Registered
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-destructive hover:text-destructive border-destructive/30 h-8 text-xs px-2.5"
+                onClick={handleCancel}
+                disabled={isCancelling}
+              >
+                {isCancelling ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Cancel'}
+              </Button>
+            </div>
+          ) : (
+            <Button
+              size="sm"
+              className="px-5 shadow-lg shadow-primary/20 hover:shadow-glow-primary font-bold"
+              onClick={() => {
+                if (!user) {
+                  toast.error('Please sign in to register', {
+                    action: { label: 'Sign in', onClick: () => router.push(ROUTES.LOGIN) },
+                  })
+                  return
+                }
+                setRegistrationModalOpen(true)
+              }}
+              disabled={!canRegister}
+            >
+              {isClosed ? 'Closed'
+                : isFull ? 'Join Waitlist'
+                : event.is_free ? 'Register Free'
+                : 'Register Now'}
+            </Button>
+          )}
+        </div>
+      </div>
     </main>
   )
 }

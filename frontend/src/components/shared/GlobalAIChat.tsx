@@ -36,6 +36,17 @@ export function GlobalAIChat() {
     scrollToBottom()
   }, [messages, isOpen])
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.altKey && e.key.toLowerCase() === 'a') {
+        e.preventDefault()
+        setIsOpen(prev => !prev)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
   const handleSend = async (e?: React.FormEvent) => {
     e?.preventDefault()
     if (!input.trim() || isLoading) return
@@ -67,21 +78,22 @@ export function GlobalAIChat() {
 
   return (
     <>
-      <div className="fixed bottom-6 right-6 z-50">
+      <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 animate-in fade-in">
         {!isOpen && (
           <button
             type="button"
             onClick={() => setIsOpen(true)}
-            className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl glow transition duration-200 hover:scale-105 hover:shadow-primary/50 active:scale-95"
+            className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl glow transition duration-200 hover:scale-105 hover:shadow-primary/50 active:scale-95 cursor-pointer"
             aria-label="Open AI Assistant"
+            title="Open AI Assistant (Alt+A)"
           >
-            <BotMessageSquare className="h-6 w-6" />
+            <BotMessageSquare className="h-5.5 w-5.5 sm:h-6 sm:w-6" aria-hidden="true" />
           </button>
         )}
       </div>
 
       {isOpen && (
-        <div className="fixed bottom-6 right-6 z-50 w-[90vw] max-w-[380px] animate-in fade-in slide-in-from-bottom-2 sm:w-[380px]">
+        <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 w-[90vw] max-w-[380px] animate-in fade-in slide-in-from-bottom-2 sm:w-[380px]">
           <div className="flex h-[500px] max-h-[80vh] flex-col overflow-hidden rounded-2xl glass shadow-2xl ring-1 ring-border/50">
             {/* Header */}
             <div className="flex items-center justify-between border-b border-border/40 bg-primary/10 px-4 py-3 backdrop-blur-md">

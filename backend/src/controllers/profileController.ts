@@ -3,6 +3,16 @@ import { Profile } from "../models/Profile";
 import { Organizer } from "../models/Organizer";
 import { AuthRequest } from "../middleware/auth";
 
+function normalizeOrganizerBody(body: Record<string, unknown>): Record<string, unknown> {
+  return {
+    organizationName: body.organizationName ?? body.organization_name,
+    description: body.description ?? null,
+    logoUrl: body.logoUrl ?? body.logo_url ?? null,
+    website: body.website ?? null,
+    socialLinks: body.socialLinks ?? body.social_links ?? null,
+  };
+}
+
 // GET /api/profiles/:userId
 export const getProfile = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -27,7 +37,7 @@ export const updateProfile = async (req: AuthRequest, res: Response): Promise<vo
     const profile = await Profile.findOneAndUpdate(
       { userId: req.params.userId },
       { $set: update },
-      { new: true, upsert: false }
+      { returnDocument: "after", upsert: false }
     );
     if (!profile) { res.status(404).json({ message: "Profile not found." }); return; }
     res.json({ data: profile, error: null });
@@ -54,7 +64,16 @@ export const createOrganizerProfile = async (req: AuthRequest, res: Response): P
     const existing = await Organizer.findOne({ userId: req.userId });
     if (existing) { res.status(409).json({ message: "Organizer profile already exists." }); return; }
 
-    const organizer = new Organizer({ userId: req.userId, ...req.body });
+    const organizerBody = normalizeOrganizerBody(req.body ?? {});
+    if (
+      typeof organizerBody.organizationName !== "string" ||
+      organizerBody.organizationName.trim().length < 2
+    ) {
+      res.status(400).json({ message: "Organization name must be at least 2 characters." });
+      return;
+    }
+
+    const organizer = new Organizer({ userId: req.userId, ...organizerBody });
     await organizer.save();
 
     // Upgrade role

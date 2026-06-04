@@ -71,8 +71,8 @@ export function AdminDashboardClient() {
           {isLoading ? (
             <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
           ) : (
-            <div className="rounded-xl border border-border/50 overflow-hidden">
-              <table className="w-full text-sm">
+            <div className="rounded-xl border border-border/50 overflow-hidden overflow-x-auto scrollbar-thin">
+              <table className="w-full text-sm min-w-[600px]">
                 <thead className="border-b border-border/50 bg-muted/40">
                   <tr>
                     {['User', 'Role', 'Status', 'Joined', 'Actions'].map(h => (

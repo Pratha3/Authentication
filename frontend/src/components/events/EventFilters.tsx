@@ -90,7 +90,7 @@ export function EventFilters() {
               </div>
 
               {/* Price & Distance row */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm font-medium mb-2">Price</p>
                   <div className="flex gap-2">
@@ -129,7 +129,7 @@ export function EventFilters() {
               </div>
 
               {/* Date range */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium mb-2 block">From</label>
                   <input type="date" value={filters.dateFrom ?? ''} onChange={(e) => setFilters({ dateFrom: e.target.value })}

@@ -110,7 +110,7 @@ export function ProfileClient() {
               <Label>Bio</Label>
               <Textarea rows={3} placeholder="Tell people about yourself…" {...register('bio')} />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Phone</Label>
                 <Input type="tel" placeholder="+91 98765 43210" {...register('phone')} />

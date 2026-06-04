@@ -237,8 +237,8 @@ export function OrganizerDashboardClient() {
                     <p className="text-muted-foreground">No events found. <Link href={ROUTES.ORGANIZER.CREATE} className="text-primary hover:underline">Create one</Link></p>
                   </div>
                 ) : (
-                  <div className="rounded-xl border border-border/50 overflow-hidden">
-                    <table className="w-full text-sm">
+                  <div className="rounded-xl border border-border/50 overflow-hidden overflow-x-auto scrollbar-thin">
+                    <table className="w-full text-sm min-w-[600px]">
                       <thead className="border-b border-border/50 bg-muted/40">
                         <tr>
                           {['Event', 'Date', 'Attendees', 'Status', 'Actions'].map(h => (

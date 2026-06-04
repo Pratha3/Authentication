@@ -46,6 +46,7 @@ export interface IEvent extends Document {
   isFeatured: boolean;
   viewCount: number;
   images: IEventImage[];
+  remindersSent: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -102,6 +103,7 @@ const eventSchema = new Schema<IEvent>(
     isFeatured: { type: Boolean, default: false },
     viewCount: { type: Number, default: 0 },
     images: [eventImageSchema],
+    remindersSent: { type: [String], default: [] },
   },
   { timestamps: true }
 );

@@ -12,8 +12,12 @@ export function FeaturedEventsSection() {
 
   if (isLoading) {
     return (
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {Array.from({ length: 3 }).map((_, i) => <EventCardSkeleton key={i} />)}
+      <div className="flex gap-5 overflow-x-auto pb-4 scrollbar-thin snap-x snap-mandatory -mx-6 px-6 sm:-mx-8 sm:px-8">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="w-[280px] sm:w-[350px] shrink-0 snap-start">
+            <EventCardSkeleton />
+          </div>
+        ))}
       </div>
     )
   }
@@ -31,9 +35,11 @@ export function FeaturedEventsSection() {
   }
 
   return (
-    <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="flex gap-5 overflow-x-auto pb-4 scrollbar-thin snap-x snap-mandatory -mx-6 px-6 sm:-mx-8 sm:px-8">
       {events.map((event, i) => (
-        <EventCard key={event.id} event={event} index={i} />
+        <div key={event.id} className="w-[280px] sm:w-[350px] shrink-0 snap-start">
+          <EventCard event={event} index={i} />
+        </div>
       ))}
     </div>
   )

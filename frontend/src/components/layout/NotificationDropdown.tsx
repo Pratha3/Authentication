@@ -27,13 +27,23 @@ export function NotificationDropdown() {
   const { user } = useAuthStore()
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotificationsStore()
 
-  // Click-outside close
+  // Click-outside close & Hotkey Alt+T
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
     }
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.altKey && e.key.toLowerCase() === 't') {
+        e.preventDefault()
+        setOpen(prev => !prev)
+      }
+    }
     document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', handler)
+      window.removeEventListener('keydown', handleKeyDown)
+    }
   }, [])
 
   const handleMarkRead = async (id: string) => {
@@ -56,8 +66,9 @@ export function NotificationDropdown() {
         onClick={() => setOpen(!open)}
         className="relative"
         aria-label="Notifications"
+        title="Notifications (Alt+T)"
       >
-        <Bell className="h-5 w-5" />
+        <Bell className="h-5 w-5" aria-hidden="true" />
         {unreadCount > 0 && (
           <motion.span
             initial={{ scale: 0 }}
@@ -77,7 +88,7 @@ export function NotificationDropdown() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.96 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 top-full mt-2 w-80 rounded-xl border border-border/50 bg-card shadow-2xl z-50 overflow-hidden"
+            className="absolute right-0 top-full mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-border/50 bg-card shadow-2xl z-50 overflow-hidden"
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">

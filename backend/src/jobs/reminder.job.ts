@@ -4,10 +4,8 @@
  * Runs every hour. For each upcoming event starting in ~24 h or ~1 h,
  * sends in-app reminders plus enabled mobile channels to all confirmed attendees.
  *
- * De-duplication: a per-process in-memory set tracks which (eventId, window)
- * combinations have already fired so restarts won't double-send within the
- * same run. The set resets on restart which is intentional — a restart
- * after > 1 h means new reminders are correct.
+ * De-duplication: stored in MongoDB's remindersSent array to prevent duplicate
+ * dispatches across multiple scaled instances or server restarts.
  */
 
 import { Event } from "../models/Event";
@@ -15,9 +13,6 @@ import { Registration } from "../models/Registration";
 import { sendEventReminders } from "../services/notification.service";
 
 const HOUR_MS = 60 * 60 * 1_000;
-
-// Tracks "eventId-Xh" keys to avoid duplicate sends in the same process lifetime
-const firedReminders = new Set<string>();
 
 interface ReminderWindow {
   label: string;
@@ -45,16 +40,27 @@ async function checkAndSendReminders(): Promise<void> {
       events = await Event.find({
         status: "upcoming",
         startDate: { $gte: windowStart, $lte: windowEnd },
-      }).lean();
+        remindersSent: { $ne: window.label },
+      });
     } catch (err: any) {
       console.error(`[Reminders] DB error fetching events for ${window.label} window:`, err.message);
       continue;
     }
 
     for (const event of events) {
-      const dedupeKey = `${String(event._id)}-${window.label}`;
-      if (firedReminders.has(dedupeKey)) continue;
-      firedReminders.add(dedupeKey);
+      let lockedEvent;
+      try {
+        lockedEvent = await Event.findOneAndUpdate(
+          { _id: event._id, remindersSent: { $ne: window.label } },
+          { $addToSet: { remindersSent: window.label } },
+          { returnDocument: "after" }
+        );
+      } catch (err: any) {
+        console.error(`[Reminders] Error locking event ${event._id} for ${window.label}:`, err.message);
+        continue;
+      }
+
+      if (!lockedEvent) continue; // locked or processed by another node
 
       let registrations: Array<{ userId: any; ticketCode: string }>;
       try {
@@ -66,6 +72,8 @@ async function checkAndSendReminders(): Promise<void> {
           .lean();
       } catch (err: any) {
         console.error(`[Reminders] DB error fetching registrations for event ${event._id}:`, err.message);
+        // Release lock
+        await Event.updateOne({ _id: event._id }, { $pull: { remindersSent: window.label } }).catch(() => {});
         continue;
       }
 
@@ -86,8 +94,8 @@ async function checkAndSendReminders(): Promise<void> {
         );
       } catch (err: any) {
         console.error(`[Reminders] Failed to send reminders for event ${event._id}:`, err.message);
-        // Remove from fired set so we retry on next tick
-        firedReminders.delete(dedupeKey);
+        // Release lock on failure so it can retry
+        await Event.updateOne({ _id: event._id }, { $pull: { remindersSent: window.label } }).catch(() => {});
       }
     }
   }

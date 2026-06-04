@@ -29,7 +29,7 @@ function currentDateTimeLocal(): string {
   return new Date(now.getTime() - offsetMs).toISOString().slice(0, 16)
 }
 
-const eventSchema = z.object({
+const baseEventSchema = z.object({
   title: z.string().min(5, 'Title must be at least 5 characters'),
   description: z.string().min(20, 'Description must be at least 20 characters'),
   short_description: z.string().max(160).optional(),
@@ -50,7 +50,9 @@ const eventSchema = z.object({
 ).refine(
   (d) => new Date(d.end_date) >= new Date(d.start_date),
   { message: 'End date must be after or equal to start date', path: ['end_date'] }
-).refine(
+)
+
+const createEventSchema = baseEventSchema.refine(
   (d) => {
     const now = new Date()
     now.setSeconds(0, 0)
@@ -59,7 +61,9 @@ const eventSchema = z.object({
   { message: 'Start date cannot be in the past', path: ['start_date'] }
 )
 
-type EventFormInput = z.infer<typeof eventSchema>
+const editEventSchema = baseEventSchema
+
+type EventFormInput = z.infer<typeof baseEventSchema>
 
 interface Props {
   mode: 'create' | 'edit'
@@ -75,8 +79,10 @@ export function EventFormClient({ mode, existing }: Props) {
   const [bannerPreview, setBannerPreview] = useState<string>(existing?.banner_url ?? '')
   const [formError, setFormError] = useState<string | null>(null)
 
+  const schema = mode === 'create' ? createEventSchema : editEventSchema
+
   const { register, handleSubmit, control, watch, formState: { errors } } = useForm<EventFormInput>({
-    resolver: zodResolver(eventSchema) as Resolver<EventFormInput>,
+    resolver: zodResolver(schema) as Resolver<EventFormInput>,
     defaultValues: existing ? {
       title: existing.title,
       description: existing.description,

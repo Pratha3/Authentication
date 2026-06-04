@@ -108,7 +108,7 @@ export const registerForEvent = async (req: AuthRequest, res: Response): Promise
           ],
         },
         { $inc: { currentAttendees: 1 } },
-        { new: true, ...(session ? { session } : {}) }
+        { returnDocument: "after", ...(session ? { session } : {}) }
       );
 
       status = confirmedEvent ? "confirmed" : "waitlisted";
@@ -229,20 +229,20 @@ export const cancelRegistration = async (req: AuthRequest, res: Response): Promi
         state.updatedEvent = await Event.findByIdAndUpdate(
           eventId,
           { $inc: { currentAttendees: -1 } },
-          { new: true, ...(session ? { session } : {}) }
+          { returnDocument: "after", ...(session ? { session } : {}) }
         ) ?? undefined;
 
         state.waitlisted = await Registration.findOneAndUpdate(
           { eventId, status: "waitlisted" },
           { $set: { status: "confirmed" } },
-          { sort: { registeredAt: 1 }, new: true, ...(session ? { session } : {}) }
+          { sort: { registeredAt: 1 }, returnDocument: "after", ...(session ? { session } : {}) }
         ) ?? undefined;
 
         if (state.waitlisted) {
           state.updatedEvent = await Event.findByIdAndUpdate(
             eventId,
             { $inc: { currentAttendees: 1 } },
-            { new: true, ...(session ? { session } : {}) }
+            { returnDocument: "after", ...(session ? { session } : {}) }
           ) ?? undefined;
         }
       }

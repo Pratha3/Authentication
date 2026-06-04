@@ -16,7 +16,7 @@ export function CategoryGrid() {
   }
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8">
+    <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-thin snap-x snap-mandatory -mx-6 px-6 sm:-mx-8 sm:px-8">
       {EVENT_CATEGORIES.map((cat, i) => (
         <motion.button
           key={cat.value}
@@ -25,7 +25,7 @@ export function CategoryGrid() {
           transition={{ delay: i * 0.03 }}
           onClick={() => handleCategoryClick(cat.value)}
           className={cn(
-            'group flex min-h-28 flex-col items-center justify-center gap-3 rounded-lg border p-4 text-center shadow-sm transition-all',
+            'group flex w-36 shrink-0 snap-start min-h-28 flex-col items-center justify-center gap-3 rounded-xl border p-4 text-center shadow-sm transition-all',
             'hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer',
             cat.color
           )}

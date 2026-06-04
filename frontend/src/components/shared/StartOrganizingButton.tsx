@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2 } from 'lucide-react'
+import { Loader2, ArrowRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { ROUTES } from '@/constants'
@@ -58,8 +58,25 @@ export function StartOrganizingButton() {
   }
 
   return (
-    <Button type="button" size="lg" onClick={handleClick} disabled={!isInitialized || isLoading}>
-      {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Starting...</> : 'Start Organizing'}
+    <Button
+      type="button"
+      size="lg"
+      onClick={handleClick}
+      disabled={!isInitialized || isLoading}
+      aria-label="Start organizing events on EventSphere"
+      className="group cursor-pointer font-bold px-8 shadow-lg shadow-primary/25 hover:shadow-glow-primary hover:scale-[1.02] active:scale-[0.98] transition-all"
+    >
+      {isLoading ? (
+        <>
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          Starting...
+        </>
+      ) : (
+        <>
+          Start Organizing
+          <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+        </>
+      )}
     </Button>
   )
 }

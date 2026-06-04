@@ -47,31 +47,33 @@ export function EventCard({ event, index = 0, variant = 'default' }: EventCardPr
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           />
         ) : (
-          <div className={cn('flex h-full items-center justify-center text-4xl', categoryConfig?.color ?? 'bg-muted')}>
+          <div className={cn('flex h-full items-center justify-center text-4xl', categoryConfig?.color ?? 'bg-muted')} aria-hidden="true">
             {categoryConfig?.emoji}
           </div>
         )}
 
-        {/* Status badge */}
-        <div className="absolute top-3 left-3">
-          <Badge className={cn('text-xs border', statusConfig.color)}>{statusConfig.label}</Badge>
+        {/* Top Badges & Actions row */}
+        <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-20 pointer-events-none">
+          <Badge className={cn('text-[10px] sm:text-xs border shadow-sm backdrop-blur-md bg-background/70 font-semibold pointer-events-auto', statusConfig.color)}>
+            {statusConfig.label}
+          </Badge>
+          
+          <button
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleBookmark() }}
+            className="pointer-events-auto flex h-8 w-8 items-center justify-center rounded-full bg-background/80 backdrop-blur-sm transition-all hover:bg-background hover:scale-110 border border-border/20 shadow-sm cursor-pointer"
+            aria-label={bookmarked ? 'Remove bookmark' : 'Bookmark event'}
+            title={bookmarked ? 'Remove bookmark' : 'Bookmark event'}
+          >
+            {bookmarked
+              ? <BookmarkCheck className="h-4 w-4 text-primary" aria-hidden="true" />
+              : <Bookmark className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            }
+          </button>
         </div>
-
-        {/* Bookmark */}
-        <button
-          onClick={(e) => { e.preventDefault(); toggleBookmark() }}
-          className="absolute top-3 right-3 flex h-8 w-8 items-center justify-center rounded-full bg-background/80 backdrop-blur-sm transition-all hover:bg-background hover:scale-110"
-          aria-label={bookmarked ? 'Remove bookmark' : 'Bookmark event'}
-        >
-          {bookmarked
-            ? <BookmarkCheck className="h-4 w-4 text-primary" />
-            : <Bookmark className="h-4 w-4 text-muted-foreground" />
-          }
-        </button>
 
         {/* Distance */}
         {event.distance !== undefined && (
-          <div className="absolute bottom-3 right-3 rounded-full bg-background/80 backdrop-blur-sm px-2 py-0.5 text-xs font-medium">
+          <div className="absolute bottom-3 right-3 rounded-full bg-background/80 backdrop-blur-sm px-2 py-0.5 text-xs font-medium z-20">
             {formatDistance(event.distance)}
           </div>
         )}
@@ -92,31 +94,30 @@ export function EventCard({ event, index = 0, variant = 'default' }: EventCardPr
         </div>
 
         {/* Title */}
-        <Link href={ROUTES.EVENT(event.slug)} className="block">
-          <h3 className="font-semibold leading-tight hover:text-primary transition-colors line-clamp-2">
+        <h3 className="font-semibold leading-tight group-hover:text-primary transition-colors line-clamp-2">
+          <Link href={ROUTES.EVENT(event.slug)} className="hover:underline before:absolute before:inset-0 before:z-10">
             {event.title}
-          </h3>
-        </Link>
+          </Link>
+        </h3>
 
         {/* Meta */}
         <div className="flex flex-col gap-1.5 text-xs text-muted-foreground mt-auto">
           <div className="flex items-center gap-1.5">
-            <Calendar className="h-3.5 w-3.5 shrink-0" />
+            <Calendar className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             <span>{formatDateTime(event.start_date)}</span>
           </div>
           {(event.city || event.venue?.name) && (
             <div className="flex items-center gap-1.5">
-              <MapPin className="h-3.5 w-3.5 shrink-0" />
+              <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               <span className="truncate">{event.venue?.name ?? event.city}</span>
             </div>
           )}
-          <div className="flex items-center gap-1.5">
-            <Users className="h-3.5 w-3.5 shrink-0" />
-            <span>{event.current_attendees} attending</span>
-            {event.capacity && (
-              <span className="text-muted-foreground/70">/ {event.capacity}</span>
-            )}
-            {isFull && <Badge variant="outline" className="text-xs ml-auto border-destructive/30 text-destructive bg-destructive/10">Full</Badge>}
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-auto">
+            <Users className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden="true" />
+            <span className="truncate">
+              {event.current_attendees} attending {event.capacity ? `(max ${event.capacity})` : ''}
+            </span>
+            {isFull && <Badge variant="outline" className="text-[10px] ml-auto h-5 px-1.5 border-destructive/30 text-destructive bg-destructive/10">Full</Badge>}
           </div>
         </div>
 

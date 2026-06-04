@@ -34,4 +34,6 @@ const userSchema = new Schema<IUser>(
   { timestamps: true }
 );
 
+userSchema.index({ resetPasswordToken: 1 }, { sparse: true });
+
 export const User = mongoose.model<IUser>("User", userSchema);

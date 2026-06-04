@@ -119,13 +119,13 @@ export function MyRegistrationsClient() {
                     reg.status === 'cancelled' && 'opacity-50'
                   )}
                 >
-                  <div className="flex gap-0">
+                  <div className="flex flex-col sm:flex-row gap-0">
                     {/* Event thumbnail */}
-                    <div className="relative w-28 shrink-0 bg-muted">
+                    <div className="relative w-full h-32 sm:w-28 sm:h-auto shrink-0 bg-muted animate-in fade-in">
                       {bannerUrl ? (
-                        <Image src={bannerUrl} alt={ev.title ?? ''} fill className="object-cover" sizes="112px" />
+                        <Image src={bannerUrl} alt={ev.title ?? ''} fill className="object-cover" sizes="(max-width: 640px) 100vw, 112px" />
                       ) : (
-                        <div className={cn('flex h-full min-h-[100px] items-center justify-center text-3xl', cat?.color)}>
+                        <div className={cn('flex h-full min-h-[120px] sm:min-h-0 items-center justify-center text-3xl', cat?.color)}>
                           {cat?.emoji}
                         </div>
                       )}
