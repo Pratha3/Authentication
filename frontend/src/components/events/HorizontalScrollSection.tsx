@@ -5,7 +5,7 @@ import { motion, useScroll, useTransform, useSpring } from 'framer-motion'
 import { useFeaturedEvents } from '@/hooks/useEvents'
 import { EventCard } from './EventCard'
 import { EventCardSkeleton } from './EventCardSkeleton'
-import { EVENT_CATEGORIES, ROUTES } from '@/constants'
+import { ROUTES } from '@/constants'
 import { cn } from '@/lib/utils'
 import { useEventsStore } from '@/store/events.store'
 import { useRouter } from 'next/navigation'
@@ -37,49 +37,23 @@ const heroTiles = [
   { icon: Map, title: 'Food Trail', meta: 'Local favorites', tone: 'bg-teal-500/15 text-teal-300 border-teal-400/20' },
 ]
 
-const stats = [
-  { icon: Zap, value: '10K+', label: 'Events listed' },
-  { icon: Users, value: '50K+', label: 'Active users' },
-  { icon: Map, value: '100+', label: 'Cities covered' },
-]
-
-const categoryGroups = [
-  {
-    title: 'Popular Interests',
-    badge: 'Trending',
-    color: 'text-primary border-primary/20 bg-primary/5',
-    items: [
-      { value: 'music', label: 'Music', emoji: '🎵', color: 'bg-pink-500/20 text-pink-400 border-pink-500/30' },
-      { value: 'tech', label: 'Tech', emoji: '💻', color: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30' },
-      { value: 'sports', label: 'Sports', emoji: '⚽', color: 'bg-red-500/20 text-red-400 border-red-500/30' },
-      { value: 'food', label: 'Food', emoji: '🍕', color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' },
-      { value: 'outdoor', label: 'Outdoor', emoji: '🌲', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
-    ]
-  },
-  {
-    title: 'Social & Connect',
-    badge: 'Community',
-    color: 'text-secondary-foreground border-secondary/20 bg-secondary/5',
-    items: [
-      { value: 'meetup', label: 'Meetup', emoji: '🤝', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
-      { value: 'cafe', label: 'Café Event', emoji: '☕', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
-      { value: 'community', label: 'Community', emoji: '🏘️', color: 'bg-green-500/20 text-green-400 border-green-500/30' },
-      { value: 'charity', label: 'Charity', emoji: '❤️', color: 'bg-rose-500/20 text-rose-400 border-rose-500/30' },
-      { value: 'other', label: 'Other', emoji: '✨', color: 'bg-gray-500/20 text-gray-400 border-gray-500/30' },
-    ]
-  },
-  {
-    title: 'Skills & Wellness',
-    badge: 'Growth',
-    color: 'text-emerald-400 border-emerald-500/20 bg-emerald-500/5',
-    items: [
-      { value: 'wellness', label: 'Wellness', emoji: '🧘', color: 'bg-teal-500/20 text-teal-400 border-teal-500/30' },
-      { value: 'business', label: 'Business', emoji: '💼', color: 'bg-slate-500/20 text-slate-400 border-slate-500/30' },
-      { value: 'workshop', label: 'Workshop', emoji: '🔧', color: 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30' },
-      { value: 'art', label: 'Art', emoji: '🎨', color: 'bg-violet-500/20 text-violet-400 border-violet-500/30' },
-      { value: 'marathon', label: 'Marathon', emoji: '🏃', color: 'bg-orange-500/20 text-orange-400 border-orange-500/30' },
-    ]
-  }
+const bentoCategories = [
+  { value: 'music', label: 'Music', emoji: '🎵', span: 'col-span-2 md:col-span-2', glow: 'from-pink-500/20 via-purple-500/5 to-transparent', hoverBorder: 'hover:border-pink-500/40', text: 'text-pink-400' },
+  { value: 'tech', label: 'Tech', emoji: '💻', span: 'col-span-2 md:col-span-2', glow: 'from-cyan-500/20 via-blue-500/5 to-transparent', hoverBorder: 'hover:border-cyan-500/40', text: 'text-cyan-400' },
+  { value: 'marathon', label: 'Marathon', emoji: '🏃', span: 'col-span-1', glow: 'from-orange-500/20 via-red-500/5 to-transparent', hoverBorder: 'hover:border-orange-500/40', text: 'text-orange-400' },
+  { value: 'meetup', label: 'Meetup', emoji: '🤝', span: 'col-span-1', glow: 'from-blue-500/20 via-indigo-500/5 to-transparent', hoverBorder: 'hover:border-blue-500/40', text: 'text-blue-400' },
+  { value: 'cafe', label: 'Café Event', emoji: '☕', span: 'col-span-1', glow: 'from-amber-500/20 via-yellow-500/5 to-transparent', hoverBorder: 'hover:border-amber-500/40', text: 'text-amber-400' },
+  { value: 'club', label: 'Club', emoji: '🎶', span: 'col-span-1', glow: 'from-purple-500/20 via-fuchsia-500/5 to-transparent', hoverBorder: 'hover:border-purple-500/40', text: 'text-purple-400' },
+  { value: 'community', label: 'Community', emoji: '🏘️', span: 'col-span-1', glow: 'from-green-500/20 via-emerald-500/5 to-transparent', hoverBorder: 'hover:border-green-500/40', text: 'text-green-400' },
+  { value: 'sports', label: 'Sports', emoji: '⚽', span: 'col-span-1', glow: 'from-red-500/20 via-rose-500/5 to-transparent', hoverBorder: 'hover:border-red-500/40', text: 'text-red-400' },
+  { value: 'food', label: 'Food', emoji: '🍕', span: 'col-span-1', glow: 'from-yellow-500/20 via-amber-500/5 to-transparent', hoverBorder: 'hover:border-yellow-500/40', text: 'text-yellow-400' },
+  { value: 'art', label: 'Art', emoji: '🎨', span: 'col-span-1', glow: 'from-violet-500/20 via-fuchsia-500/5 to-transparent', hoverBorder: 'hover:border-violet-500/40', text: 'text-violet-400' },
+  { value: 'outdoor', label: 'Outdoor', emoji: '🌲', span: 'col-span-2 md:col-span-2', glow: 'from-emerald-500/20 via-teal-500/5 to-transparent', hoverBorder: 'hover:border-emerald-500/40', text: 'text-emerald-400' },
+  { value: 'wellness', label: 'Wellness', emoji: '🧘', span: 'col-span-1', glow: 'from-teal-500/20 via-cyan-500/5 to-transparent', hoverBorder: 'hover:border-teal-500/40', text: 'text-teal-400' },
+  { value: 'business', label: 'Business', emoji: '💼', span: 'col-span-1', glow: 'from-slate-500/20 via-zinc-500/5 to-transparent', hoverBorder: 'hover:border-slate-500/40', text: 'text-slate-400' },
+  { value: 'workshop', label: 'Workshop', emoji: '🔧', span: 'col-span-1', glow: 'from-indigo-500/20 via-blue-500/5 to-transparent', hoverBorder: 'hover:border-indigo-500/40', text: 'text-indigo-400' },
+  { value: 'charity', label: 'Charity', emoji: '❤️', span: 'col-span-1', glow: 'from-rose-500/20 via-red-500/5 to-transparent', hoverBorder: 'hover:border-rose-500/40', text: 'text-rose-400' },
+  { value: 'other', label: 'Other', emoji: '✨', span: 'col-span-2 md:col-span-2', glow: 'from-gray-500/20 via-slate-500/5 to-transparent', hoverBorder: 'hover:border-gray-500/40', text: 'text-gray-400' }
 ]
 
 export function HorizontalScrollSection() {
@@ -88,6 +62,16 @@ export function HorizontalScrollSection() {
   const { setFilters } = useEventsStore()
   const { events, isLoading } = useFeaturedEvents()
   const [isDesktop, setIsDesktop] = useState(false)
+  const [hoveredStack, setHoveredStack] = useState(false)
+  const [hostMousePosition, setHostMousePosition] = useState({ x: 0, y: 0 })
+
+  const handleHostMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const { left, top } = e.currentTarget.getBoundingClientRect()
+    setHostMousePosition({
+      x: e.clientX - left,
+      y: e.clientY - top,
+    })
+  }
 
   useEffect(() => {
     const media = window.matchMedia('(min-width: 1024px)')
@@ -184,24 +168,59 @@ export function HorizontalScrollSection() {
                   </div>
 
                   <dl className="mt-6 sm:mt-10 grid w-full max-w-2xl grid-cols-1 sm:grid-cols-3 gap-4" aria-label="EventSphere statistics">
-                    {stats.map(({ icon: Icon, value, label }, idx) => (
-                      <div
-                        key={label}
-                        className="rounded-xl border border-border/40 bg-card/40 hover:border-primary/30 hover:shadow-glow-sm transition-all duration-300 px-6 py-4 text-left backdrop-blur-md"
-                        style={{ animationDelay: `${idx * 80}ms` }}
-                      >
-                        <Icon className="mb-2 h-5 w-5 text-primary" aria-hidden="true" />
-                        <dd className="text-2xl font-extrabold tracking-tight">{value}</dd>
-                        <dt className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mt-1">{label}</dt>
+                    {/* Stat 1: col-span-2 */}
+                    <div
+                      className="group/stat rounded-xl border border-border/40 bg-card/40 hover:border-primary/30 hover:shadow-glow-sm transition-all duration-300 px-6 py-4 text-left backdrop-blur-md relative overflow-hidden sm:col-span-2"
+                    >
+                      <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full blur-xl pointer-events-none group-hover/stat:bg-primary/10 transition-colors duration-500" />
+                      <Zap className="mb-2 h-5 w-5 text-primary" aria-hidden="true" />
+                      <dd className="text-2xl sm:text-3xl font-extrabold tracking-tight">10K+</dd>
+                      <dt className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mt-1">Events listed</dt>
+                    </div>
+
+                    {/* Stat 2: col-span-1 */}
+                    <div
+                      className="group/stat rounded-xl border border-border/40 bg-card/40 hover:border-primary/30 hover:shadow-glow-sm transition-all duration-300 px-6 py-4 text-left backdrop-blur-md relative overflow-hidden sm:col-span-1"
+                    >
+                      <div className="absolute top-0 right-0 w-16 h-16 bg-secondary/5 rounded-full blur-xl pointer-events-none group-hover/stat:bg-secondary/10 transition-colors duration-500" />
+                      <Users className="mb-2 h-5 w-5 text-secondary-foreground" aria-hidden="true" />
+                      <dd className="text-2xl sm:text-3xl font-extrabold tracking-tight">50K+</dd>
+                      <dt className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mt-1">Active users</dt>
+                    </div>
+
+                    {/* Stat 3: col-span-3 (Horizontal span banner) */}
+                    <div
+                      className="group/stat rounded-xl border border-border/40 bg-card/40 hover:border-primary/30 hover:shadow-glow-sm transition-all duration-300 px-6 py-4 text-left backdrop-blur-md relative overflow-hidden sm:col-span-3 flex items-center justify-between gap-4"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent pointer-events-none opacity-50 group-hover/stat:opacity-100 transition-opacity" />
+                      <div className="relative z-10 flex flex-col">
+                        <dd className="text-2xl sm:text-3xl font-extrabold tracking-tight">100+</dd>
+                        <dt className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mt-1">Cities covered</dt>
                       </div>
-                    ))}
+                      <div className="relative z-10 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 border border-primary/20">
+                        <Map className="h-5 w-5 text-primary" aria-hidden="true" />
+                      </div>
+                    </div>
                   </dl>
                 </div>
 
                 {/* Right Column: Stylized Overlapping Event Cards Stack */}
-                <div className="lg:col-span-5 hidden lg:flex justify-center items-center relative h-[450px] w-full pointer-events-none">
+                <div
+                  className="lg:col-span-5 hidden lg:flex justify-center items-center relative h-[450px] w-full pointer-events-auto cursor-pointer"
+                  onMouseEnter={() => setHoveredStack(true)}
+                  onMouseLeave={() => setHoveredStack(false)}
+                >
                   {/* Card 3: Sports (Bottom) */}
-                  <div className="absolute w-[260px] rounded-2xl border border-border/20 bg-card/30 backdrop-blur-sm p-4 flex flex-col gap-2 shadow-xl rotate-[8deg] translate-x-14 translate-y-8 opacity-40 hover:opacity-60 transition-opacity">
+                  <motion.div
+                    animate={{
+                      x: hoveredStack ? 96 : 56,
+                      y: hoveredStack ? 64 : 32,
+                      rotate: hoveredStack ? 15 : 8,
+                      opacity: hoveredStack ? 0.8 : 0.4,
+                    }}
+                    transition={{ type: 'spring', stiffness: 100, damping: 15 }}
+                    className="absolute w-[260px] rounded-2xl border border-border/20 bg-card/30 backdrop-blur-sm p-4 flex flex-col gap-2 shadow-xl"
+                  >
                     <div className="h-28 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-3xl">
                       🏃
                     </div>
@@ -209,10 +228,19 @@ export function HorizontalScrollSection() {
                     <h4 className="font-bold text-xs text-foreground/80 truncate">Sunrise Marathon</h4>
                     <p className="text-[10px] text-muted-foreground truncate">Sun, Jun 20 · 6:00 AM</p>
                     <p className="text-[10px] text-muted-foreground truncate">Riverfront, Ahmedabad</p>
-                  </div>
+                  </motion.div>
 
                   {/* Card 2: Tech (Middle) */}
-                  <div className="absolute w-[260px] rounded-2xl border border-border/30 bg-card/45 backdrop-blur-md p-4 flex flex-col gap-2 shadow-2xl rotate-[-6deg] -translate-x-14 -translate-y-4 opacity-75 hover:opacity-90 transition-opacity">
+                  <motion.div
+                    animate={{
+                      x: hoveredStack ? -112 : -56,
+                      y: hoveredStack ? -32 : -16,
+                      rotate: hoveredStack ? -15 : -6,
+                      opacity: hoveredStack ? 0.95 : 0.75,
+                    }}
+                    transition={{ type: 'spring', stiffness: 100, damping: 15 }}
+                    className="absolute w-[260px] rounded-2xl border border-border/30 bg-card/45 backdrop-blur-md p-4 flex flex-col gap-2 shadow-2xl"
+                  >
                     <div className="h-28 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-3xl">
                       💻
                     </div>
@@ -220,10 +248,18 @@ export function HorizontalScrollSection() {
                     <h4 className="font-bold text-xs text-foreground/90 truncate">Ahmedabad Tech Summit</h4>
                     <p className="text-[10px] text-muted-foreground truncate">Mon, Jun 8 · 10:00 AM</p>
                     <p className="text-[10px] text-muted-foreground truncate">AMA Hall, Ahmedabad</p>
-                  </div>
+                  </motion.div>
 
                   {/* Card 1: Music (Top/Front) */}
-                  <div className="absolute w-[280px] rounded-2xl border border-primary/20 bg-card/75 backdrop-blur-xl p-5 flex flex-col gap-3 shadow-glow-primary rotate-[2deg] z-10 hover:scale-105 hover:rotate-0 transition-all duration-300 pointer-events-auto cursor-pointer select-none">
+                  <motion.div
+                    animate={{
+                      y: hoveredStack ? -12 : 0,
+                      rotate: hoveredStack ? 0 : 2,
+                      scale: hoveredStack ? 1.05 : 1,
+                    }}
+                    transition={{ type: 'spring', stiffness: 100, damping: 15 }}
+                    className="absolute w-[280px] rounded-2xl border border-primary/20 bg-card/75 backdrop-blur-xl p-5 flex flex-col gap-3 shadow-glow-primary z-10 select-none"
+                  >
                     <div className="h-32 rounded-xl bg-gradient-to-br from-pink-500/20 to-violet-500/20 flex items-center justify-center text-4xl border border-border/10 relative overflow-hidden">
                       <span className="absolute top-2 left-2 rounded-full px-2 py-0.5 text-[9px] uppercase tracking-wider font-extrabold bg-primary/20 border border-primary/30 text-primary animate-pulse">Upcoming</span>
                       🎵
@@ -236,7 +272,7 @@ export function HorizontalScrollSection() {
                       <span className="font-semibold text-primary">₹499</span>
                       <span className="text-muted-foreground font-medium">0 / 120 attending</span>
                     </div>
-                  </div>
+                  </motion.div>
                 </div>
               </div>
             </div>
@@ -308,39 +344,39 @@ export function HorizontalScrollSection() {
                   </p>
                 </div>
 
-                {/* Category Groups Columns */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-5xl mx-auto">
-                  {categoryGroups.map((group) => (
-                    <div key={group.title} className="glass rounded-2xl p-5 border border-border/40 flex flex-col gap-4">
-                      {/* Header */}
-                      <div className="flex items-center justify-between border-b border-border/20 pb-3">
-                        <h3 className="font-bold text-sm tracking-wide text-foreground/90">{group.title}</h3>
-                        <span className={`text-[9px] uppercase tracking-wider font-extrabold px-2 py-0.5 rounded-full border ${group.color}`}>
-                          {group.badge}
+                {/* Categories Bento Grid */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full max-w-5xl mx-auto">
+                  {bentoCategories.map((cat) => (
+                    <motion.button
+                      key={cat.value}
+                      onClick={() => handleCategoryClick(cat.value)}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className={cn(
+                        "group relative flex flex-col justify-end p-5 h-28 rounded-2xl border bg-card/45 backdrop-blur-md transition-all duration-300 text-left overflow-hidden cursor-pointer",
+                        "border-border/30 hover:shadow-lg",
+                        cat.hoverBorder,
+                        cat.span
+                      )}
+                      aria-label={`Filter events by category: ${cat.label}`}
+                      title={`Filter by ${cat.label}`}
+                    >
+                      {/* Custom glow background */}
+                      <div className={cn("absolute -inset-px opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br pointer-events-none z-0", cat.glow)} />
+                      
+                      {/* Float backdrop emoji */}
+                      <span className="absolute right-4 bottom-2 text-5xl opacity-10 pointer-events-none transition-transform duration-500 group-hover:scale-125 group-hover:rotate-12 select-none z-0">
+                        {cat.emoji}
+                      </span>
+
+                      {/* Content */}
+                      <div className="relative z-10 flex flex-col gap-1">
+                        <span className="text-2xl" aria-hidden="true">{cat.emoji}</span>
+                        <span className={cn("font-bold text-sm tracking-wide text-foreground/90 group-hover:text-foreground transition-colors", cat.text)}>
+                          {cat.label}
                         </span>
                       </div>
-                      
-                      {/* Items */}
-                      <ul className="flex flex-col gap-2.5">
-                        {group.items.map((cat) => (
-                          <li key={cat.value}>
-                            <button
-                              onClick={() => handleCategoryClick(cat.value)}
-                              className={cn(
-                                'flex items-center gap-3 w-full px-3.5 py-2.5 rounded-xl border text-left text-xs font-semibold tracking-wide transition-all duration-200 cursor-pointer hover:-translate-y-0.5 hover:shadow-sm',
-                                'bg-input/20 border-border/40 hover:border-primary/30 hover:bg-input/40 active:translate-y-px'
-                              )}
-                              aria-label={`Filter events by category: ${cat.label}`}
-                              title={`Filter by ${cat.label}`}
-                            >
-                              <span className="text-xl" aria-hidden="true">{cat.emoji}</span>
-                              <span className="flex-1 text-foreground/90">{cat.label}</span>
-                              <span className="text-[10px] text-primary opacity-0 group-hover:opacity-100 transition-opacity">Select →</span>
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
+                    </motion.button>
                   ))}
                 </div>
               </div>
@@ -349,28 +385,50 @@ export function HorizontalScrollSection() {
             {/* PANEL 4: HOST YOUR OWN EVENT CTA */}
             <div className="w-full lg:w-[25%] h-auto lg:h-full flex flex-col justify-center shrink-0 py-4 lg:py-10 border-b lg:border-b-0 lg:border-r border-border/10 last:border-0 relative overflow-hidden">
               <div className="container mx-auto px-4 sm:px-8 flex justify-center">
-                <div className="glass max-w-2xl rounded-3xl p-8 sm:p-12 text-center flex flex-col items-center gap-6 border border-primary/20 shadow-glow-primary relative overflow-hidden">
+                <div
+                  onMouseMove={handleHostMouseMove}
+                  className="group/host glass max-w-2xl rounded-3xl p-8 sm:p-12 text-center flex flex-col items-center gap-6 border border-primary/20 shadow-glow-primary relative overflow-hidden"
+                >
+                  {/* Dynamic spotlight gradients */}
+                  <div
+                    className="absolute -inset-px rounded-3xl opacity-0 group-hover/host:opacity-100 transition-opacity duration-500 pointer-events-none z-0"
+                    style={{
+                      background: `radial-gradient(250px circle at ${hostMousePosition.x}px ${hostMousePosition.y}px, color-mix(in oklch, var(--primary) 20%, transparent), color-mix(in oklch, var(--secondary) 15%, transparent) 50%, transparent 100%)`,
+                    }}
+                  />
+                  <div
+                    className="absolute -inset-px rounded-3xl opacity-0 group-hover/host:opacity-100 transition-opacity duration-500 pointer-events-none z-30"
+                    style={{
+                      background: `radial-gradient(150px circle at ${hostMousePosition.x}px ${hostMousePosition.y}px, color-mix(in oklch, var(--primary) 40%, var(--secondary)), transparent 80%)`,
+                      padding: '1px',
+                      maskImage: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+                      WebkitMaskImage: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+                      maskComposite: 'exclude',
+                      WebkitMaskComposite: 'xor',
+                    }}
+                  />
+
                   <div className="absolute -top-24 -left-24 h-48 w-48 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
                   <div className="absolute -bottom-24 -right-24 h-48 w-48 bg-secondary/10 rounded-full blur-3xl pointer-events-none" />
 
-                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 shadow-glow-primary">
+                  <div className="relative z-10 mx-auto flex h-14 w-14 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 shadow-glow-primary">
                     <Star className="h-6 w-6 text-primary animate-pulse" aria-hidden="true" />
                   </div>
-                  <h2 className="text-4xl sm:text-5xl font-extrabold tracking-tight">
+                  <h2 className="relative z-10 text-4xl sm:text-5xl font-extrabold tracking-tight">
                     Host Your Own <span className="gradient-text">Event</span>
                   </h2>
-                  <p className="mx-auto max-w-xl text-sm sm:text-base leading-relaxed text-muted-foreground font-medium">
+                  <p className="relative z-10 mx-auto max-w-xl text-sm sm:text-base leading-relaxed text-muted-foreground font-medium">
                     Become an organizer and bring your community together. Create events,
                     manage attendees, and grow your audience.
                   </p>
 
                   {/* Organizer Stats Pill */}
-                  <div className="inline-flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-full px-4 py-1.5 text-xs text-primary font-bold shadow-inner">
+                  <div className="relative z-10 inline-flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-full px-4 py-1.5 text-xs text-primary font-bold shadow-inner">
                     <Users className="h-3.5 w-3.5 animate-pulse-soft" aria-hidden="true" />
                     <span>Join 500+ local organizers hosting this week</span>
                   </div>
 
-                  <div className="mt-2 scale-105">
+                  <div className="relative z-10 mt-2 scale-105">
                     <StartOrganizingButton />
                   </div>
                 </div>

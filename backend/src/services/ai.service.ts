@@ -43,6 +43,54 @@ function eventDescription(event: EventSummary): string {
   return text.length > 140 ? `${text.slice(0, 137)}...` : text;
 }
 
+function levenshteinDistance(s1: string, s2: string): number {
+  const m = s1.length;
+  const n = s2.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (s1[i - 1] === s2[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1];
+      } else {
+        dp[i][j] = Math.min(
+          dp[i - 1][j] + 1,
+          dp[i][j - 1] + 1,
+          dp[i - 1][j - 1] + 1
+        );
+      }
+    }
+  }
+  return dp[m][n];
+}
+
+function isSimilar(w1: string, w2: string): boolean {
+  if (w1.includes(w2) || w2.includes(w1)) return true;
+  if (w1[0] !== w2[0]) return false;
+  
+  const distance = levenshteinDistance(w1, w2);
+  const maxLen = Math.max(w1.length, w2.length);
+  
+  const chars1 = w1.split("");
+  const chars2 = w2.split("");
+  let overlap = 0;
+  for (const char of chars1) {
+    const idx = chars2.indexOf(char);
+    if (idx !== -1) {
+      overlap++;
+      chars2.splice(idx, 1);
+    }
+  }
+  
+  if (overlap < maxLen * 0.75) return false;
+  
+  if (maxLen <= 3) return distance === 0;
+  return distance <= 2;
+}
+
 function matchesQuery(event: EventSummary, message: string): boolean {
   const query = message.toLowerCase();
   const haystack = [
@@ -62,7 +110,13 @@ function matchesQuery(event: EventSummary, message: string): boolean {
     .split(/\W+/)
     .filter((word) => word.length > 2 && !["show", "event", "events", "near", "find", "tell", "about"].includes(word));
 
-  return directWords.length === 0 || directWords.some((word) => haystack.includes(word));
+  if (directWords.length === 0) return true;
+
+  const haystackWords = haystack.split(/\W+/).filter((w) => w.length > 2);
+
+  return directWords.some((qWord) => 
+    haystackWords.some((hWord) => isSimilar(qWord, hWord))
+  );
 }
 
 function buildLocalReply(message: string, events: EventSummary[]): string {

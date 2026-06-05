@@ -64,7 +64,7 @@ export function StartOrganizingButton() {
       onClick={handleClick}
       disabled={!isInitialized || isLoading}
       aria-label="Start organizing events on EventSphere"
-      className="group cursor-pointer font-bold px-8 shadow-lg shadow-primary/25 hover:shadow-glow-primary hover:scale-[1.02] active:scale-[0.98] transition-all"
+      className="group relative overflow-hidden cursor-pointer font-bold px-8 shadow-lg shadow-primary/25 hover:shadow-glow-primary hover:scale-[1.02] active:scale-[0.98] transition-all before:absolute before:inset-0 before:bg-gradient-to-r before:from-transparent before:via-white/20 before:to-transparent before:translate-x-[-100%] hover:before:translate-x-[100%] before:transition-transform before:duration-1000"
     >
       {isLoading ? (
         <>

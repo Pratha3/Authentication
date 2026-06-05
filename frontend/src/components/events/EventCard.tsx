@@ -1,9 +1,10 @@
 'use client'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Calendar, MapPin, Users, Bookmark, BookmarkCheck } from 'lucide-react'
-import { cn, formatDateTime, formatCurrency, truncate, formatDistance, getCapacityPercentage } from '@/lib/utils'
+import { cn, formatDateTime, formatCurrency, formatDistance, getCapacityPercentage } from '@/lib/utils'
 import { EVENT_CATEGORIES, EVENT_STATUS_CONFIG, ROUTES } from '@/constants'
 import { useBookmark } from '@/hooks/useBookmark'
 import { Badge } from '@/components/ui/badge'
@@ -22,17 +23,46 @@ export function EventCard({ event, index = 0, variant = 'default' }: EventCardPr
   const capacityPct = getCapacityPercentage(event.capacity, event.current_attendees)
   const isFull = event.capacity !== null && event.current_attendees >= event.capacity
 
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLElement>) => {
+    const { left, top } = e.currentTarget.getBoundingClientRect()
+    setMousePosition({
+      x: e.clientX - left,
+      y: e.clientY - top,
+    })
+  }
+
   return (
     <motion.article
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05, duration: 0.3 }}
+      onMouseMove={handleMouseMove}
       className={cn(
-        'group relative flex flex-col overflow-hidden rounded-xl border border-border/50 bg-card/60 backdrop-blur-sm transition-all duration-300',
-        'hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/10 hover:-translate-y-1',
+        'group relative flex flex-col overflow-hidden rounded-xl border border-border/30 bg-card/45 backdrop-blur-md transition-all duration-500',
+        'hover:-translate-y-1',
         variant === 'featured' && 'md:flex-row md:h-64'
       )}
     >
+      {/* 21st.dev inspired spotlight border and diffuse neon shadow */}
+      <div
+        className="absolute -inset-px rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-30"
+        style={{
+          background: `radial-gradient(120px circle at ${mousePosition.x}px ${mousePosition.y}px, color-mix(in oklch, var(--primary) 50%, var(--secondary)), transparent 80%)`,
+          maskImage: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+          WebkitMaskImage: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+          maskComposite: 'exclude',
+          WebkitMaskComposite: 'xor',
+          padding: '1px',
+        }}
+      />
+      <div
+        className="absolute -inset-3 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-xl pointer-events-none -z-10"
+        style={{
+          background: `radial-gradient(300px circle at ${mousePosition.x}px ${mousePosition.y}px, color-mix(in oklch, var(--primary) 15%, transparent), color-mix(in oklch, var(--secondary) 10%, transparent) 50%, transparent 100%)`,
+        }}
+      />
       {/* Banner */}
       <div className={cn(
         'relative overflow-hidden bg-muted',
