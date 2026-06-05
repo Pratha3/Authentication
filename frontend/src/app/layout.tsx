@@ -27,7 +27,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${plusJakartaSans.variable} font-sans`}>
+    <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning className={`${plusJakartaSans.variable} font-sans`}>
       <body className="font-sans antialiased min-h-screen bg-background text-foreground relative overflow-x-hidden">
         {/* Decorative background glows */}
         <div className="pointer-events-none fixed left-1/2 top-0 -z-10 h-[600px] w-full -translate-x-1/2 bg-[radial-gradient(ellipse_60%_50%_at_50%_0%,oklch(0.72_0.22_196_/_12%),transparent)]" />

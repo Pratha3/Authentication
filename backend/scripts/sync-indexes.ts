@@ -7,8 +7,10 @@ import "../src/models/Venue";
 import "../src/models/Event";
 import "../src/models/Registration";
 import "../src/models/Bookmark";
-import "../src/models/Notification";
-import "../src/models/NotificationLog";
+import "../src/models/Notification"
+import "../src/models/NotificationLog"
+import "../src/models/ChatMessage"
+import "../src/models/Review"
 
 async function main(): Promise<void> {
   await mongoose.connect(env.MONGO_URI);

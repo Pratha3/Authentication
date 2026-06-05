@@ -14,6 +14,7 @@ export async function registerForEvent(
   _userId: string,
   attendeeDetails?: AttendeeDetails
 ): Promise<ApiResponse<Registration>> {
+  void _userId
   try {
     const res = await registrationsApi.register(eventId, attendeeDetails as Record<string, unknown>)
     return { data: res.data as Registration, error: null }
@@ -23,6 +24,7 @@ export async function registerForEvent(
 }
 
 export async function cancelRegistration(eventId: string, _userId: string): Promise<ApiResponse<null>> {
+  void _userId
   try {
     await registrationsApi.cancel(eventId)
     return { data: null, error: null }
@@ -32,6 +34,7 @@ export async function cancelRegistration(eventId: string, _userId: string): Prom
 }
 
 export async function fetchUserRegistrations(_userId: string): Promise<ApiResponse<Registration[]>> {
+  void _userId
   try {
     const res = await registrationsApi.myRegistrations()
     return { data: res.data as Registration[], error: null }

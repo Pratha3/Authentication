@@ -22,6 +22,8 @@ import { Button } from '@/components/ui/button'
 import { EVENT_CATEGORIES, EVENT_STATUS_CONFIG, ROUTES } from '@/constants'
 import { cn, formatDateTime, formatDate, formatCurrency, getCapacityPercentage } from '@/lib/utils'
 import type { Event } from '@/types'
+import { EventChat } from '@/components/events/EventChat'
+import { ReviewSection } from '@/components/events/ReviewSection'
 
 interface Props { slug: string }
 
@@ -59,32 +61,33 @@ export function EventDetailClient({ slug }: Props) {
     }
   }, [selectedEvent, slug, event?.id])
 
-  const { bookmarked, toggleBookmark } = useBookmark(event?.id ?? '')
+  const { bookmarked, toggleBookmark } = useBookmark(event?.id ?? '', !!event?.is_bookmarked)
 
-  // ── Check if current user is the organizer of this event ──────────────────
-  const isOwnEvent = !!event?.organizer_id && !!user && (
-    // Match via organizer.user_id (from normalizeEvent's organizer sub-object)
-    (event.organizer as any)?.user_id === user.id ||
-    // Fallback: profile role is organizer and organizer name matches
-    (profile?.role === 'organizer')
-  )
+  // Check if current user is the organizer of this event.
   // More reliable: compare the organizer's userId stored in the event
   const [isOrganizer, setIsOrganizer] = useState(false)
   useEffect(() => {
     if (!event || !user) { setIsOrganizer(false); return }
+    let ignore = false
+
     // The backend populates organizerId with organizationName — we also get
     // the raw organizer_id. We compare via the profile endpoint lazily.
     const orgObj = event.organizer as any
     if (orgObj?.user_id === user.id) { setIsOrganizer(true); return }
+
+    setIsOrganizer(false)
+
     // Check via profile role + whether user has an organizer that owns this event
     if (profile?.role === 'organizer' || profile?.role === 'admin') {
       // Fetch organizer profile to get the _id, then compare with event.organizer_id
       import('@/services/api/profiles.service').then(({ fetchOrganizerProfile }) => {
         fetchOrganizerProfile(user.id).then(({ data: org }) => {
-          if (org && org.id === event.organizer_id) setIsOrganizer(true)
+          if (!ignore) setIsOrganizer(!!org && org.id === event.organizer_id)
         })
       })
     }
+
+    return () => { ignore = true }
   }, [event, user, profile])
 
   const handleRegistrationSuccess = (updates: Partial<Event>) => {
@@ -142,7 +145,10 @@ export function EventDetailClient({ slug }: Props) {
   const capacityPct = getCapacityPercentage(event.capacity, event.current_attendees)
   const isFull = event.capacity !== null && event.current_attendees >= event.capacity
   const isClosed = ['completed', 'cancelled'].includes(event.status)
-  const canRegister = !isClosed && !isFull
+  const registrationDeadlinePassed = event.registration_deadline
+    ? new Date(event.registration_deadline) < new Date()
+    : false
+  const canRegister = !isClosed && !registrationDeadlinePassed
 
   return (
     <main className="container py-6 pb-24 lg:pb-8 max-w-5xl">
@@ -217,6 +223,14 @@ export function EventDetailClient({ slug }: Props) {
                 ))}
               </div>
             )}
+
+            <div className="pt-6 border-t border-border/20">
+              <ReviewSection
+                eventId={event.id}
+                isAttendee={!!event.is_registered}
+                isCompleted={isClosed || new Date(event.start_date) < new Date()}
+              />
+            </div>
           </div>
 
           {/* Sidebar */}
@@ -295,7 +309,7 @@ export function EventDetailClient({ slug }: Props) {
                   }}
                   disabled={!canRegister}
                 >
-                  {isClosed ? 'Registration Closed'
+                  {isClosed || registrationDeadlinePassed ? 'Registration Closed'
                     : isFull ? 'Join Waitlist'
                     : event.is_free ? 'Register for Free'
                     : 'Register Now'}
@@ -304,8 +318,14 @@ export function EventDetailClient({ slug }: Props) {
 
               {event.registration_deadline && (
                 <p className="text-xs text-muted-foreground text-center">
-                  Registration closes {formatDate(event.registration_deadline)}
+                  {registrationDeadlinePassed ? 'Registration is closed' : `Registration closes ${formatDate(event.registration_deadline)}`}
                 </p>
+              )}
+
+              {(event.is_registered || isOrganizer) && !isClosed && (
+                <div className="pt-1">
+                  <EventChat eventId={event.id} eventTitle={event.title} />
+                </div>
               )}
 
               <div className="flex gap-2 pt-1">
@@ -380,7 +400,7 @@ export function EventDetailClient({ slug }: Props) {
               }}
               disabled={!canRegister}
             >
-              {isClosed ? 'Closed'
+              {isClosed || registrationDeadlinePassed ? 'Closed'
                 : isFull ? 'Join Waitlist'
                 : event.is_free ? 'Register Free'
                 : 'Register Now'}

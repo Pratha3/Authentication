@@ -15,6 +15,8 @@ import './models/Registration'
 import './models/Bookmark'
 import './models/Notification'
 import './models/NotificationLog'
+import './models/ChatMessage'
+import './models/Review'
 import authRoutes from './routes/authRoutes'
 import eventRoutes from './routes/eventRoutes'
 import profileRoutes from './routes/profileRoutes'
@@ -24,6 +26,7 @@ import notificationRoutes from './routes/notificationRoutes'
 import uploadRoutes from './routes/uploadRoutes'
 import testRoutes from './routes/testRoutes'
 import aiRoutes from './routes/aiRoutes'
+import reviewRoutes from './routes/reviewRoutes'
 import { initSockets } from './sockets/io'
 import { startQueueWorker } from './services/notification-queue.service'
 import { startReminderJob } from './jobs/reminder.job'
@@ -34,13 +37,18 @@ app.use(securityHeaders)
 
 const allowedOrigins = [
   'http://localhost:3000',
+  'http://127.0.0.1:3000',
   'http://localhost:5173',
+  'http://127.0.0.1:5173',
   env.CLIENT_URL,
 ].filter(Boolean) as string[]
+const devOriginPattern = /^http:\/\/(localhost|127\.0\.0\.1):\d+$/
 
 app.use(cors({
   origin: (origin, cb) =>
-    !origin || allowedOrigins.includes(origin) ? cb(null, true) : cb(null, false),
+    !origin || allowedOrigins.includes(origin) || (env.NODE_ENV !== 'production' && devOriginPattern.test(origin))
+      ? cb(null, true)
+      : cb(null, false),
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
@@ -59,6 +67,7 @@ app.use('/api/bookmarks', bookmarkRoutes)
 app.use('/api/notifications', notificationRoutes)
 app.use('/api/upload', uploadRoutes)
 app.use('/api/ai', aiRoutes)
+app.use('/api/reviews', reviewRoutes)
 if (env.NODE_ENV !== 'production') {
   app.use('/api/test', testRoutes)
 }

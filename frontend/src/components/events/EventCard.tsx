@@ -17,7 +17,7 @@ interface EventCardProps {
 }
 
 export function EventCard({ event, index = 0, variant = 'default' }: EventCardProps) {
-  const { bookmarked, toggleBookmark } = useBookmark(event.id)
+  const { bookmarked, toggleBookmark } = useBookmark(event.id, !!event.is_bookmarked)
   const categoryConfig = EVENT_CATEGORIES.find(c => c.value === event.category)
   const statusConfig = EVENT_STATUS_CONFIG[event.status]
   const capacityPct = getCapacityPercentage(event.capacity, event.current_attendees)

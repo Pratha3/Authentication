@@ -43,6 +43,8 @@ export async function updateOrganizerProfile(
   _id: string,
   _payload: Partial<Organizer>
 ): Promise<ApiResponse<Organizer>> {
+  void _id
+  void _payload
   // TODO: add PATCH /api/profiles/organizer/:id endpoint when needed
   return { data: null, error: 'Not implemented yet.' }
 }

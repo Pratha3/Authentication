@@ -60,6 +60,7 @@ export async function fetchEvents(
 }
 
 export async function fetchEventBySlug(slug: string, _userId?: string): Promise<ApiResponse<Event>> {
+  void _userId
   try {
     const res = await eventsApi.bySlug(slug)
     return { data: res.data as Event, error: res.error }

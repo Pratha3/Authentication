@@ -60,7 +60,6 @@ function getErrorMessage(data: unknown, fallback: string): string {
 }
 
 // ─── Normalize MongoDB _id / camelCase → frontend snake_case ─────────────────
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function normalizeProfile(raw: any) {
   if (!raw) return null
   return {
@@ -81,7 +80,6 @@ export function normalizeProfile(raw: any) {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function normalizeEvent(raw: any) {
   if (!raw) return null
   const organizerId = raw.organizerId ?? raw.organizer_id
@@ -148,7 +146,6 @@ export function normalizeEvent(raw: any) {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function normalizeAuthUser(raw: any): AuthUser {
   return { id: String(raw._id ?? raw.id ?? ''), email: raw.email ?? '', name: raw.name }
 }
@@ -267,6 +264,28 @@ export const aiApi = {
       body: JSON.stringify({ message })
     })
     return raw
+  },
+  generateBanner: async (prompt: string) => {
+    const raw = await request<{ imageUrl: string }>(`/ai/generate-banner`, {
+      method: 'POST',
+      body: JSON.stringify({ prompt })
+    })
+    return raw
+  }
+}
+
+// ─── Reviews ──────────────────────────────────────────────────────────────────
+export const reviewsApi = {
+  addReview: async (eventId: string, rating: number, comment: string) => {
+    const raw = await request<{ review: unknown }>('/reviews', {
+      method: 'POST',
+      body: JSON.stringify({ eventId, rating, comment })
+    })
+    return raw
+  },
+  getReviews: async (eventId: string) => {
+    const raw = await request<{ reviews: unknown[] }>(`/reviews/event/${eventId}`)
+    return raw
   }
 }
 
@@ -278,7 +297,6 @@ export const profilesApi = {
   },
   update: async (userId: string, payload: unknown) => {
     // Convert frontend snake_case back to MongoDB camelCase for the PATCH body
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const p = payload as any
     const mongoPayload = {
       ...(p.full_name !== undefined && { fullName: p.full_name }),
@@ -298,7 +316,6 @@ export const profilesApi = {
   },
   getOrganizer: async (userId: string) => {
     const raw = await request<{ data: unknown }>(`/profiles/organizer/${userId}`)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const d = raw.data as any
     if (!d) return { data: null }
     return {

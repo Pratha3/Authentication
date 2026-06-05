@@ -2,7 +2,6 @@ import { notificationsApi } from '@/lib/api'
 import type { Notification, ApiResponse } from '@/types'
 
 // Normalise MongoDB camelCase → frontend snake_case
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function normaliseNotification(raw: any): Notification {
   return {
     id: String(raw._id ?? raw.id ?? ''),
@@ -17,6 +16,7 @@ function normaliseNotification(raw: any): Notification {
 }
 
 export async function fetchNotifications(_userId: string): Promise<ApiResponse<Notification[]>> {
+  void _userId
   try {
     const res = await notificationsApi.list()
     return { data: (res.data as unknown[]).map(normaliseNotification), error: null }
@@ -35,6 +35,7 @@ export async function markNotificationRead(id: string): Promise<ApiResponse<null
 }
 
 export async function markAllNotificationsRead(_userId: string): Promise<ApiResponse<null>> {
+  void _userId
   try {
     await notificationsApi.markAllRead()
     return { data: null, error: null }

@@ -2,6 +2,7 @@ import { bookmarksApi } from '@/lib/api'
 import type { Bookmark, ApiResponse } from '@/types'
 
 export async function fetchUserBookmarks(_userId: string): Promise<ApiResponse<Bookmark[]>> {
+  void _userId
   try {
     const res = await bookmarksApi.list()
     return { data: res.data as Bookmark[], error: null }
@@ -11,6 +12,7 @@ export async function fetchUserBookmarks(_userId: string): Promise<ApiResponse<B
 }
 
 export async function addBookmark(_userId: string, eventId: string): Promise<ApiResponse<Bookmark>> {
+  void _userId
   try {
     const res = await bookmarksApi.add(eventId)
     return { data: res.data as Bookmark, error: null }
@@ -20,6 +22,7 @@ export async function addBookmark(_userId: string, eventId: string): Promise<Api
 }
 
 export async function removeBookmark(_userId: string, eventId: string): Promise<ApiResponse<null>> {
+  void _userId
   try {
     await bookmarksApi.remove(eventId)
     return { data: null, error: null }

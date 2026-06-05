@@ -106,7 +106,6 @@ export function MyRegistrationsClient() {
               const startDate = ev.startDate ?? ev.start_date ?? ''
               const bannerUrl = ev.bannerUrl ?? ev.banner_url ?? null
               const slug = ev.slug ?? ''
-              const isFree = ev.isFree ?? ev.is_free ?? true
 
               return (
                 <motion.div

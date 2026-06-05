@@ -4,9 +4,10 @@ import { useForm, Controller, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useRouter } from 'next/navigation'
-import { Loader2, Upload } from 'lucide-react'
+import { Loader2, Upload, Sparkles } from 'lucide-react'
 import Image from 'next/image'
 import { toast } from 'sonner'
+import { BannerGeneratorModal } from '@/components/shared/BannerGeneratorModal'
 import { useAuthStore } from '@/store/auth.store'
 import { useEventsStore } from '@/store/events.store'
 import { fetchOrganizerProfile } from '@/services/api/profiles.service'
@@ -77,6 +78,7 @@ export function EventFormClient({ mode, existing }: Props) {
   const [isLoading, setIsLoading] = useState(false)
   const [bannerFile, setBannerFile] = useState<File | null>(null)
   const [bannerPreview, setBannerPreview] = useState<string>(existing?.banner_url ?? '')
+  const [bannerModalOpen, setBannerModalOpen] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
   const schema = mode === 'create' ? createEventSchema : editEventSchema
@@ -137,7 +139,7 @@ export function EventFormClient({ mode, existing }: Props) {
       }
 
       // Upload banner if a new file was selected
-      let bannerUrl = existing?.banner_url ?? null
+      let bannerUrl = bannerPreview || null
       if (bannerFile) {
         const { url, error } = await uploadApi.upload('event-images', bannerFile)
         if (error || !url) {
@@ -208,7 +210,19 @@ export function EventFormClient({ mode, existing }: Props) {
 
           {/* Banner upload */}
           <div className="space-y-2">
-            <Label>Event Banner</Label>
+            <div className="flex justify-between items-center">
+              <Label>Event Banner</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="text-xs h-7 gap-1.5 rounded-lg border-primary/30 text-primary cursor-pointer hover:bg-primary/10 transition-colors"
+                onClick={() => setBannerModalOpen(true)}
+              >
+                <Sparkles className="h-3 w-3" />
+                Generate with AI
+              </Button>
+            </div>
             <label className={cn(
               'relative flex h-48 cursor-pointer items-center justify-center rounded-xl border-2 border-dashed transition-colors overflow-hidden bg-muted/30',
               'border-border/50 hover:border-primary/50'
@@ -378,6 +392,15 @@ export function EventFormClient({ mode, existing }: Props) {
           </div>
         </form>
       </main>
+
+      <BannerGeneratorModal
+        isOpen={bannerModalOpen}
+        onClose={() => setBannerModalOpen(false)}
+        onSelectImage={(url) => {
+          setBannerPreview(url)
+          setBannerFile(null)
+        }}
+      />
     </AuthGuard>
   )
 }

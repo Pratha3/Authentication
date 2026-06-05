@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { motion, AnimatePresence } from 'framer-motion'
-import { CheckCircle2, Ticket, Loader2, Clock, Users, MapPin, Calendar, X, Mail, Phone } from 'lucide-react'
+import { CheckCircle2, Loader2, Clock, Users, MapPin, Calendar, X, Mail, Phone } from 'lucide-react'
 import { toast } from 'sonner'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { Button } from '@/components/ui/button'
@@ -41,16 +41,6 @@ interface RegistrationModalProps {
 
 type Step = 'details' | 'form' | 'success'
 
-// ── Inline Dialog (no separate dialog.tsx to avoid animation conflicts) ───────
-function ModalOverlay({ onClick }: { onClick: () => void }) {
-  return (
-    <div
-      className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm"
-      onClick={onClick}
-    />
-  )
-}
-
 export function RegistrationModal({ event, open, onClose, onSuccess }: RegistrationModalProps) {
   const [step, setStep] = useState<Step>('details')
   const [isLoading, setIsLoading] = useState(false)
@@ -59,7 +49,7 @@ export function RegistrationModal({ event, open, onClose, onSuccess }: Registrat
   const [submitError, setSubmitError] = useState<string | null>(null)
   const { user, profile } = useAuthStore()
 
-  const { register, handleSubmit, formState: { errors }, reset, getValues } = useForm<AttendeeFormData>({
+  const { register, handleSubmit, formState: { errors }, reset } = useForm<AttendeeFormData>({
     resolver: zodResolver(attendeeSchema),
     defaultValues: {
       email: profile?.email ?? user?.email ?? '',

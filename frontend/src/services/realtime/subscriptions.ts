@@ -47,20 +47,13 @@ function getSocket(): Socket {
 }
 
 /**
- * Emit a room-join event safely:
- *  - If already connected → emit immediately.
- *  - If connecting    → wait for `connect` then emit.
- * Returns a cleanup fn that un-registers the one-time listener.
+ * Emit a room-join event safely and re-join after reconnects.
+ * Returns a cleanup fn that unregisters the connect listener.
  */
-function joinRoom(s: Socket, event: string, room: string): () => void {
-  if (s.connected) {
-    s.emit(event, room)
-    return () => {} // nothing to clean up for the join itself
-  }
-
-  // Queue the join until the socket is ready
-  const handler = () => s.emit(event, room)
-  s.once('connect', handler)
+function joinRoom(s: Socket, event: string, payload: unknown): () => void {
+  const handler = () => s.emit(event, payload)
+  if (s.connected) handler()
+  s.on('connect', handler)
   return () => s.off('connect', handler)
 }
 
@@ -88,10 +81,6 @@ export function subscribeToEventUpdates(
   // Join the room (deferred if not yet connected)
   const cleanupJoin = joinRoom(s, 'join_event', eventId)
 
-  // Re-join after every reconnect
-  const onReconnect = () => s.emit('join_event', eventId)
-  s.on('connect', onReconnect)
-
   const handleAttendee = (data: AttendeeUpdate) => {
     if (data.eventId === eventId) {
       onAttendeeChange(data.count)
@@ -107,7 +96,6 @@ export function subscribeToEventUpdates(
 
   return () => {
     cleanupJoin()
-    s.off('connect', onReconnect)
     s.off('attendee_update', handleAttendee)
     s.off('status_update', handleStatus)
     if (s.connected) s.emit('leave_event', eventId)
@@ -123,13 +111,10 @@ export function subscribeToUserNotifications(
   const s = getSocket()
 
   const cleanupJoin = joinRoom(s, 'join_user', userId)
-  const onReconnect = () => s.emit('join_user', userId)
-  s.on('connect', onReconnect)
   s.on('notification', onNotification)
 
   return () => {
     cleanupJoin()
-    s.off('connect', onReconnect)
     s.off('notification', onNotification)
     if (s.connected) s.emit('leave_user', userId)
   }
@@ -153,14 +138,64 @@ export function subscribeToOrganizerDashboard(
   const s = getSocket()
 
   const cleanupJoin = joinRoom(s, 'join_organizer', organizerUserId)
-  const onReconnect = () => s.emit('join_organizer', organizerUserId)
-  s.on('connect', onReconnect)
   s.on('dashboard_update', onUpdate)
 
   return () => {
     cleanupJoin()
-    s.off('connect', onReconnect)
     s.off('dashboard_update', onUpdate)
     if (s.connected) s.emit('leave_organizer', organizerUserId)
+  }
+}
+
+// ── Chat room: real-time event discussion ──────────────────────────────────────
+
+export interface ChatMessageData {
+  _id: string
+  eventId: string
+  userId: string
+  userName: string
+  text: string
+  createdAt: string
+}
+
+export function subscribeToEventChat(
+  eventId: string,
+  userId: string,
+  onHistory: (messages: ChatMessageData[]) => void,
+  onNewMessage: (msg: ChatMessageData) => void
+): {
+  sendMessage: (userName: string, text: string) => void
+  unsubscribe: () => void
+} {
+  const s = getSocket()
+
+  const payload = { eventId, userId }
+  const cleanupJoin = joinRoom(s, 'join_chat', payload)
+
+  const handleHistory = (data: { eventId: string; messages: ChatMessageData[] }) => {
+    if (data.eventId === eventId) {
+      onHistory(data.messages)
+    }
+  }
+
+  const handleNewMessage = (msg: ChatMessageData) => {
+    if (msg.eventId === eventId) {
+      onNewMessage(msg)
+    }
+  }
+
+  s.on('chat_history', handleHistory)
+  s.on('new_chat_message', handleNewMessage)
+
+  return {
+    sendMessage: (userName: string, text: string) => {
+      s.emit('send_chat_message', { eventId, userId, userName, text })
+    },
+    unsubscribe: () => {
+      cleanupJoin()
+      s.off('chat_history', handleHistory)
+      s.off('new_chat_message', handleNewMessage)
+      if (s.connected) s.emit('leave_chat', eventId)
+    }
   }
 }

@@ -1,6 +1,7 @@
 import { Server as SocketServer } from "socket.io";
 import { Server as HttpServer } from "http";
 import { Event } from "../models/Event";
+import { ChatMessage } from "../models/ChatMessage";
 
 let io: SocketServer;
 
@@ -13,11 +14,28 @@ export const initSockets = (httpServer: HttpServer): SocketServer => {
   const allowedOrigins = [
     process.env.CLIENT_URL ?? "http://localhost:3000",
     "http://localhost:3000",
+    "http://127.0.0.1:3000",
     "http://localhost:5173",
+    "http://127.0.0.1:5173",
   ];
+  const devOriginPattern = /^http:\/\/(localhost|127\.0\.0\.1):\d+$/;
 
   io = new SocketServer(httpServer, {
-    cors: { origin: allowedOrigins, methods: ["GET", "POST"], credentials: true },
+    cors: {
+      origin: (origin, cb) => {
+        if (
+          !origin ||
+          allowedOrigins.includes(origin) ||
+          (process.env.NODE_ENV !== "production" && devOriginPattern.test(origin))
+        ) {
+          cb(null, true);
+          return;
+        }
+        cb(null, false);
+      },
+      methods: ["GET", "POST"],
+      credentials: true,
+    },
     pingTimeout: 60000,
     pingInterval: 25000,
   });
@@ -61,6 +79,38 @@ export const initSockets = (httpServer: HttpServer): SocketServer => {
 
     socket.on("leave_organizer", (userId: string) => {
       socket.leave(`organizer:${userId}`);
+    });
+
+    // ── Live Chat room: real-time event discussion ───────────────────────
+    socket.on("join_chat", async (payload: { eventId: string; userId: string }) => {
+      const { eventId, userId } = payload;
+      socket.join(`chat:${eventId}`);
+      try {
+        const messages = await ChatMessage.find({ eventId })
+          .sort({ createdAt: 1 })
+          .limit(50)
+          .lean();
+        socket.emit("chat_history", { eventId, messages });
+      } catch {}
+    });
+
+    socket.on("leave_chat", (eventId: string) => {
+      socket.leave(`chat:${eventId}`);
+    });
+
+    socket.on("send_chat_message", async (payload: { eventId: string; userId: string; userName: string; text: string }) => {
+      const { eventId, userId, userName, text } = payload;
+      try {
+        const newMessage = await ChatMessage.create({
+          eventId,
+          userId,
+          userName,
+          text,
+        });
+        io.to(`chat:${eventId}`).emit("new_chat_message", newMessage);
+      } catch (err) {
+        socket.emit("chat_error", { message: "Failed to send message" });
+      }
     });
 
     socket.on("disconnect", (reason) => {

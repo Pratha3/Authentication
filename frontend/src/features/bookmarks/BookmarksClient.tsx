@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Bookmark, Loader2 } from 'lucide-react'
+import { Bookmark } from 'lucide-react'
 import { useAuthStore } from '@/store/auth.store'
 import { useBookmarksStore } from '@/store/bookmarks.store'
 import { fetchUserBookmarks } from '@/services/api/bookmarks.service'

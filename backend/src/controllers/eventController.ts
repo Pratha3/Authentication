@@ -197,7 +197,12 @@ export const getOrganizerEvents = async (req: Request, res: Response): Promise<v
 // ─── GET /api/events/:slug ────────────────────────────────────────────────────
 export const getEventBySlug = async (req: Request, res: Response): Promise<void> => {
   try {
-    const event = await Event.findOne({ slug: String(req.params.slug) })
+    const slugOrId = String(req.params.slug);
+    const query = isValidId(slugOrId)
+      ? { $or: [{ slug: slugOrId }, { _id: new mongoose.Types.ObjectId(slugOrId) }] }
+      : { slug: slugOrId };
+
+    const event = await Event.findOne(query)
       .populate("organizerId", "organizationName logoUrl verificationStatus")
       .populate("venueId", "name address city latitude longitude")
       .lean();

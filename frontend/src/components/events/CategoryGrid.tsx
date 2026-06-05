@@ -1,5 +1,4 @@
 'use client'
-import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { EVENT_CATEGORIES, ROUTES } from '@/constants'
 import { cn } from '@/lib/utils'

@@ -10,26 +10,27 @@ import type { Notification } from '@/types'
 export function useRealtimeNotifications() {
   const { user } = useAuthStore()
   const { addNotification, setNotifications } = useNotificationsStore()
+  const userId = user?.id
   // Track previous userId to avoid duplicate subscriptions
   const prevUserIdRef = useRef<string | null>(null)
 
   useEffect(() => {
-    if (!user) {
+    if (!userId) {
       prevUserIdRef.current = null
       return
     }
 
     // Don't re-subscribe if same user is already subscribed
-    if (prevUserIdRef.current === user.id) return
-    prevUserIdRef.current = user.id
+    if (prevUserIdRef.current === userId) return
+    prevUserIdRef.current = userId
 
     // Load existing notifications from DB on login
-    fetchNotifications(user.id).then(({ data }) => {
+    fetchNotifications(userId).then(({ data }) => {
       if (data && data.length > 0) setNotifications(data)
     })
 
     // Subscribe to real-time push
-    const unsubscribe = subscribeToUserNotifications(user.id, (raw) => {
+    const unsubscribe = subscribeToUserNotifications(userId, (raw) => {
       const notification = raw as Notification
       // Normalise _id → id from backend
       const normalised: Notification = {
@@ -49,5 +50,5 @@ export function useRealtimeNotifications() {
       unsubscribe()
       prevUserIdRef.current = null
     }
-  }, [user?.id, addNotification, setNotifications])
+  }, [userId, addNotification, setNotifications])
 }

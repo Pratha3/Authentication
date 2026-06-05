@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Filter, X, SlidersHorizontal, LayoutGrid, Map } from 'lucide-react'
+import { X, SlidersHorizontal, LayoutGrid, Map } from 'lucide-react'
 import { useEventsStore } from '@/store/events.store'
 import { EVENT_CATEGORIES, DISTANCE_OPTIONS, SORT_OPTIONS } from '@/constants'
 import { Button } from '@/components/ui/button'
