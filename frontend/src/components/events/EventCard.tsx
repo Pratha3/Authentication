@@ -8,6 +8,7 @@ import { cn, formatDateTime, formatCurrency, formatDistance, getCapacityPercenta
 import { EVENT_CATEGORIES, EVENT_STATUS_CONFIG, ROUTES } from '@/constants'
 import { useBookmark } from '@/hooks/useBookmark'
 import { Badge } from '@/components/ui/badge'
+import { CategoryIcon } from './CategoryIcon'
 import type { Event } from '@/types'
 
 interface EventCardProps {
@@ -77,8 +78,8 @@ export function EventCard({ event, index = 0, variant = 'default' }: EventCardPr
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           />
         ) : (
-          <div className={cn('flex h-full items-center justify-center text-4xl', categoryConfig?.color ?? 'bg-muted')} aria-hidden="true">
-            {categoryConfig?.emoji}
+          <div className={cn('flex h-full items-center justify-center', categoryConfig?.color ?? 'bg-muted')} aria-hidden="true">
+            <CategoryIcon category={event.category} className="h-12 w-12 text-foreground/75" />
           </div>
         )}
 
@@ -113,8 +114,8 @@ export function EventCard({ event, index = 0, variant = 'default' }: EventCardPr
       <div className="flex flex-1 flex-col p-4 gap-3">
         {/* Category */}
         <div className="flex items-center gap-2">
-          <Badge variant="outline" className={cn('text-xs border', categoryConfig?.color)}>
-            {categoryConfig?.emoji} {categoryConfig?.label}
+          <Badge variant="outline" className={cn('text-xs border gap-1.5', categoryConfig?.color)}>
+            <CategoryIcon category={event.category} className="h-3.5 w-3.5" /> {categoryConfig?.label}
           </Badge>
           {event.is_free ? (
             <Badge variant="outline" className="text-xs border-green-500/30 text-green-400 bg-green-500/10">Free</Badge>

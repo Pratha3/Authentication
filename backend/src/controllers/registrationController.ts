@@ -54,7 +54,10 @@ async function runWithTransactionFallback<T>(
       });
       return result as T;
     } catch (err) {
-      if (isStandaloneTransactionError(err) && env.NODE_ENV !== "production") {
+      if (isStandaloneTransactionError(err)) {
+        if (env.NODE_ENV === "production") {
+          throw new Error("Database transactions are unavailable. Operations aborted to maintain data integrity.");
+        }
         console.warn("[DB] Transactions are unavailable; retrying write without a session.");
         return operation(null);
       }

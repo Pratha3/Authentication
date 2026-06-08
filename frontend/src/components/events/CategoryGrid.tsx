@@ -5,6 +5,8 @@ import { cn } from '@/lib/utils'
 import { useEventsStore } from '@/store/events.store'
 import { useRouter } from 'next/navigation'
 
+import { CategoryIcon } from './CategoryIcon'
+
 export function CategoryGrid() {
   const { setFilters } = useEventsStore()
   const router = useRouter()
@@ -29,7 +31,9 @@ export function CategoryGrid() {
             cat.color
           )}
         >
-          <span className="text-3xl transition-transform group-hover:scale-110">{cat.emoji}</span>
+          <span className="transition-transform group-hover:scale-110">
+            <CategoryIcon category={cat.value} className="h-7 w-7" />
+          </span>
           <span className="text-xs font-semibold leading-tight">{cat.label}</span>
         </motion.button>
       ))}

@@ -7,6 +7,7 @@ import { EVENT_CATEGORIES, DISTANCE_OPTIONS, SORT_OPTIONS } from '@/constants'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
+import { CategoryIcon } from './CategoryIcon'
 
 export function EventFilters() {
   const { filters, setFilters, resetFilters, mapView, setMapView } = useEventsStore()
@@ -82,7 +83,7 @@ export function EventFilters() {
                           active ? cat.color : 'border-border/50 text-muted-foreground hover:border-border'
                         )}
                       >
-                        {cat.emoji} {cat.label}
+                        <CategoryIcon category={cat.value} className="h-3.5 w-3.5" /> {cat.label}
                       </button>
                     )
                   })}

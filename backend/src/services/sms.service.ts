@@ -71,48 +71,6 @@ function buildSmsBody(msg: SmsMessage): string {
   }
 }
 
-// ─── TextBelt (free — 1 SMS/day/IP, no signup) ────────────────────────────────
-async function sendViaTextBelt(msg: SmsMessage): Promise<boolean> {
-  const to = msg.to.replace(/^\+/, "").replace(/\D/g, "");
-  try {
-    const res = await fetch("https://textbelt.com/text", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone: msg.to, message: buildSmsBody(msg), key: "textbelt" }),
-    });
-    const data: any = await res.json();
-    if (data.success) { console.log(`[SMS/TextBelt] Sent to ${msg.to}`); return true; }
-    console.warn(`[SMS/TextBelt] Failed (${msg.to}): ${data.error} — quota left: ${data.quotaRemaining}`);
-    return false;
-  } catch (err: any) { console.error("[SMS/TextBelt]", err.message); return false; }
-}
-
-// ─── Fast2SMS (free for Indian +91 numbers) ────────────────────────────────────
-async function sendViaFast2Sms(msg: SmsMessage): Promise<boolean> {
-  const apiKey = process.env.FAST2SMS_API_KEY;
-  if (!apiKey) { console.warn("[SMS/Fast2SMS] FAST2SMS_API_KEY not set"); return false; }
-
-  // Fast2SMS expects numbers without country code (10 digits for India)
-  const numbers = msg.to.replace(/^\+91/, "").replace(/\D/g, "");
-  try {
-    const res = await fetch("https://www.fast2sms.com/dev/bulkV2", {
-      method: "POST",
-      headers: { Authorization: apiKey, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        route: "q",           // quick transactional route
-        message: buildSmsBody(msg),
-        language: "english",
-        flash: 0,
-        numbers,
-      }),
-    });
-    const data: any = await res.json();
-    if (data.return) { console.log(`[SMS/Fast2SMS] Sent to ${msg.to}`); return true; }
-    console.warn("[SMS/Fast2SMS] Failed:", JSON.stringify(data));
-    return false;
-  } catch (err: any) { console.error("[SMS/Fast2SMS]", err.message); return false; }
-}
-
 // ─── Twilio SMS ────────────────────────────────────────────────────────────────
 async function sendViaTwilioSms(msg: SmsMessage): Promise<boolean> {
   const sid   = process.env.TWILIO_ACCOUNT_SID;
@@ -133,10 +91,6 @@ export async function sendSms(msg: SmsMessage): Promise<boolean> {
   if (!msg.to) return false;
   if (process.env.SMS_ENABLED !== "true") return false;
 
-  switch ((process.env.SMS_PROVIDER ?? "").toLowerCase()) {
-    case "textbelt":  return sendViaTextBelt(msg);
-    case "fast2sms":  return sendViaFast2Sms(msg);
-    case "twilio":    return sendViaTwilioSms(msg);
-    default:          return false;
-  }
+  return sendViaTwilioSms(msg);
 }
+

@@ -24,7 +24,6 @@ import registrationRoutes from './routes/registrationRoutes'
 import bookmarkRoutes from './routes/bookmarkRoutes'
 import notificationRoutes from './routes/notificationRoutes'
 import uploadRoutes from './routes/uploadRoutes'
-import testRoutes from './routes/testRoutes'
 import aiRoutes from './routes/aiRoutes'
 import reviewRoutes from './routes/reviewRoutes'
 import { initSockets } from './sockets/io'
@@ -68,9 +67,7 @@ app.use('/api/notifications', notificationRoutes)
 app.use('/api/upload', uploadRoutes)
 app.use('/api/ai', aiRoutes)
 app.use('/api/reviews', reviewRoutes)
-if (env.NODE_ENV !== 'production') {
-  app.use('/api/test', testRoutes)
-}
+// No test routes mounted
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
